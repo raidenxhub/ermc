@@ -1,0 +1,6 @@
+# Package Managers
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+# Ignore Svelte files due to plugin incompatibility
+src/**/*.svelte
