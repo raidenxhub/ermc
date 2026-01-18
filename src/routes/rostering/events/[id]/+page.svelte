@@ -88,16 +88,20 @@
                   <td class="p-4 align-middle">
                     {#key entry.id}
                       {#if !entry.user}
-                        <div class="flex gap-2">
-                          <form method="POST" action="?/claim_primary">
-                            <input type="hidden" name="roster_entry_id" value={entry.id} />
-                            <button class="btn btn-sm btn-primary">Claim Primary</button>
-                          </form>
-                          <form method="POST" action="?/claim_standby">
-                            <input type="hidden" name="roster_entry_id" value={entry.id} />
-                            <button class="btn btn-sm btn-outline">Claim Standby</button>
-                          </form>
-                        </div>
+                        {#if new Date().getTime() > new Date(data.event.start_time).getTime() - 15 * 60 * 1000}
+                             <span class="badge badge-ghost opacity-50">Booking Closed</span>
+                        {:else}
+                            <div class="flex gap-2">
+                            <form method="POST" action="?/claim_primary">
+                                <input type="hidden" name="roster_entry_id" value={entry.id} />
+                                <button class="btn btn-sm btn-primary">Claim Primary</button>
+                            </form>
+                            <form method="POST" action="?/claim_standby">
+                                <input type="hidden" name="roster_entry_id" value={entry.id} />
+                                <button class="btn btn-sm btn-outline">Claim Standby</button>
+                            </form>
+                            </div>
+                        {/if}
                       {:else}
                         {#if entry.user?.id === data.me.id}
                           {#if new Date(entry.start_time).getTime() - Date.now() > 60 * 60 * 1000}

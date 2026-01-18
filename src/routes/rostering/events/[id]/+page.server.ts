@@ -76,9 +76,16 @@ export const actions: Actions = {
 		if (!roster_entry_id) return fail(400, { message: 'Missing roster_entry_id' });
 
 		// ensure the slot is still open
-		const { data: entry } = await supabase.from('roster_entries').select('*').eq('id', roster_entry_id).single();
+		const { data: entry } = await supabase.from('roster_entries').select('*, event:events(*)').eq('id', roster_entry_id).single();
 		if (!entry) return fail(404, { message: 'Slot not found' });
 		if (entry.user_id) return fail(400, { message: 'Slot already claimed' });
+
+        // Booking Window Check: Closed 15 mins before event start
+        const now = Date.now();
+        const startTime = new Date(entry.event.start_time).getTime();
+        if (now > startTime - 15 * 60 * 1000) {
+            return fail(400, { message: 'Booking is closed (closes 15m before event).' });
+        }
 
 		// create primary claim (trigger will set roster_entries.user_id)
 		const { error } = await supabase.from('roster_claims').insert({ roster_entry_id, user_id: user.id, type: 'primary' });

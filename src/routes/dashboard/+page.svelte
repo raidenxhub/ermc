@@ -140,7 +140,7 @@
                                 </p>
                             </div>
                             <div class="ml-auto font-medium">
-                                <a href="/coordination" class="btn btn-sm btn-primary">Book Now</a>
+                                <a href="/rostering/events/{event.id}" class="btn btn-sm btn-primary">Book Now</a>
                             </div>
                         </div>
                     {/each}

@@ -71,6 +71,13 @@
                 supabase.removeChannel(knockChannel);
             };
         }
+
+        // Poll every 10 seconds to re-validate access (VATSIM online status)
+        const interval = setInterval(() => {
+            invalidateAll();
+        }, 10000);
+
+        return () => clearInterval(interval);
     });
 
     function scrollToBottom() {

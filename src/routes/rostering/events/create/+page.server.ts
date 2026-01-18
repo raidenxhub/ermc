@@ -62,6 +62,6 @@ export const actions: Actions = {
 			return fail(500, { message: 'Failed to create event.' });
 		}
 
-		throw redirect(303, '/dashboard');
+		throw redirect(303, '/events/mgmt');
 	}
 };

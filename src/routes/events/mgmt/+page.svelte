@@ -15,7 +15,7 @@
 			<h1 class="text-3xl font-bold">Event Management</h1>
 			<p class="text-muted-foreground">Create and manage events for the network.</p>
 		</div>
-		<a href="/coordination/events/create" class="btn btn-primary">
+		<a href="/rostering/events/create" class="btn btn-primary">
 			<Plus size={20} /> Create Event
 		</a>
 	</div>
