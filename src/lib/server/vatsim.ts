@@ -28,14 +28,7 @@ interface VatsimEvent {
 const VATSIM_EVENTS_API = 'https://api.vatsim.net/v2/events';
 // Gulf / Khaleej / Middle East airports
 const RELEVANT_AIRPORTS = [
-	'OBBI', 'OKKK', // Bahrain, Kuwait
-	'OMDB', 'OMAA', 'OMSJ', // UAE
-	'OTHH', 'OTBD', // Qatar
-	'OEDF', 'OERK', 'OEJN', // Saudi Arabia
-	'OOMS', // Oman
-	'ORBI', // Iraq
-	'OJAI', // Jordan
-	'OLBA'  // Lebanon
+	'OBBI', 'OKKK' // Bahrain, Kuwait
 ];
 
 export async function fetchVatsimEvents() {

@@ -35,23 +35,4 @@ let { data }: PageProps = $props();
 		<!-- Bottom Gradient -->
 		<div class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-base-300"></div>
 	</section>
-
-    {#if data.error}
-    <section class="bg-base-300 py-6">
-        <div class="container mx-auto">
-            <div class="alert alert-error">
-                <span>{data.error}</span>
-            </div>
-        </div>
-    </section>
-    {/if}
-
-	<!-- <section class="bg-base-300 py-10">
-		<div class="container flex flex-col">
-			<h2 class="text-4xl">Upcoming Events</h2>
-			<div class="divider"></div>
-		</div>
-	</section> -->
-
-    
 </main>
