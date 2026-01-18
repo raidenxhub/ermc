@@ -59,8 +59,7 @@
         {/if}
     </div>
 
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div class="col-span-4 rounded-xl border bg-card text-card-foreground shadow">
+    <div class="grid gap-4 md:grid-cols-3">
         <div class="rounded-xl border bg-card text-card-foreground shadow">
             <div class="p-6 flex flex-row items-center justify-between space-y-0 pb-2">
                 <h3 class="tracking-tight text-sm font-medium">Controller Rating</h3>
