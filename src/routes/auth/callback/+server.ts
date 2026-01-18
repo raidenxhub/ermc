@@ -18,7 +18,7 @@ export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 				data: { user }
 			} = await supabase.auth.getUser();
 
-			// Verify Discord guild membership using provider token
+			// Verify Discord guild membership 
 			if (session?.provider_token) {
 				const resp = await fetch('https://discord.com/api/users/@me/guilds', {
 					headers: { Authorization: `Bearer ${session.provider_token}` }
@@ -43,7 +43,7 @@ export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 					console.error('Missing SUPABASE_SECRET_KEY');
 					throw redirect(303, '/');
 				}
-				const admin = createClient(PUBLIC_SUPABASE_URL, serviceRole);
+				const admin = createClient(publicEnv.PUBLIC_SUPABASE_URL, serviceRole);
 				const name =
 					user.user_metadata?.name ||
 					user.user_metadata?.full_name ||
