@@ -31,7 +31,7 @@
                         <li><a href="/rostering" class="font-medium"><Radar size={18} /> Event Rostering</a></li>
                         <li><a href="/coordination" class="font-medium"><BarChart3 size={18} /> Coordination</a></li>
                         {#if user.role === 'staff' || user.role === 'admin' || user.role === 'coordinator'}
-                             <li><a href="/events/manage" class="font-medium"><Settings size={18} /> Manage</a></li>
+                             <li><a href="/events/mgmt" class="font-medium"><Settings size={18} /> Manage</a></li>
                         {/if}
                     {/if}
                 </ul>
