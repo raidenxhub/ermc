@@ -23,6 +23,6 @@ export const createSupabaseLoadClient = (fetch: typeof globalThis.fetch, cookies
 export const getSupabaseBrowserClient = () => {
 	if (supabaseBrowserClient) return supabaseBrowserClient;
 
-	supabaseBrowserClient = createBrowserClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY);
+	supabaseBrowserClient = createBrowserClient(env.PUBLIC_SUPABASE_URL, env.PUBLIC_SUPABASE_ANON_KEY);
 	return supabaseBrowserClient;
 };
