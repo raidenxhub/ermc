@@ -153,10 +153,13 @@ export async function syncEvents(supabase: SupabaseClient) {
                              break;
                         }
 
+                        // Use format like OBBI_TWR or OBBI_STBY
+                        const positionName = `${airport}_${pos}`;
+
                         entriesToInsert.push({
                             event_id: eventRecord.id,
                             airport: airport,
-                            position: `${airport}_${pos}`,
+                            position: positionName,
                             start_time: currentSlotStart.toISOString(),
                             end_time: currentSlotEnd.toISOString(),
                             status: 'open'
