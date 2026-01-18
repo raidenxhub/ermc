@@ -52,10 +52,15 @@ export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 					user.user_metadata?.custom_claims?.name ||
 					user.user_metadata?.raw_user_meta_data?.name;
 				const email = user.email || user.user_metadata?.email;
+                const avatar_url = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+                const discord_username = user.user_metadata?.user_name || user.user_metadata?.custom_claims?.global_name;
+
 				await admin.from('profiles').upsert({
 					id: user.id,
 					name, // This might be null if not found, but we handle that in onboarding check
 					email,
+                    avatar_url,
+                    discord_username,
 					updated_at: new Date().toISOString()
 				});
 

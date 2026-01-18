@@ -42,16 +42,21 @@
                     {#if user}
                          <div class="dropdown dropdown-end">
                             <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
-                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary text-primary-content flex items-center justify-center font-bold text-lg leading-none pb-0.5 shadow-md">
-                                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary text-primary-content flex items-center justify-center font-bold text-lg leading-none pb-0.5 shadow-md overflow-hidden">
+                                    {#if user.avatar_url}
+                                        <img src={user.avatar_url} alt={user.name} />
+                                    {:else}
+                                        {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                                    {/if}
                                 </div>
                             </div>
                             <ul tabindex="-1" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
                                 <li class="menu-title">
                                     <span>{user.name || 'User'}</span>
-                                    <span class="text-xs font-normal opacity-70">{user.cid} ({user.rating_short})</span>
+                                    <span class="text-xs font-normal opacity-70">CID: {user.cid || 'N/A'}</span>
                                 </li>
                                 <div class="divider my-1"></div>
+                                <li><a href="/settings"><Settings size={16} /> Settings</a></li>
                                 <li>
                                     <form action="/auth/logout" method="POST">
                                         <button type="submit" class="w-full text-left text-error"><LogOut size={16} /> Sign Out</button>
