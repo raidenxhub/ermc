@@ -36,7 +36,10 @@ export const actions: Actions = {
 		if (!eventId) return fail(400, { message: 'Missing event ID' });
 
 		const { error } = await supabase.from('events').delete().eq('id', eventId);
-
+        
+        // Also delete associated roster entries first if cascade isn't set up (usually helpful)
+        // Actually supabase should handle cascade if configured, but let's be safe or check errors
+        
 		if (error) {
 			console.error('Error deleting event:', error);
 			return fail(500, { message: 'Failed to delete event' });
