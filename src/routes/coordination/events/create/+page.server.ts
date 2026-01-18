@@ -44,7 +44,7 @@ export const actions: Actions = {
 			return fail(500, { message: 'Server configuration error.' });
 		}
 
-		const admin = createClient(PUBLIC_SUPABASE_URL, serviceRole);
+		const admin = createClient(publicEnv.PUBLIC_SUPABASE_URL, serviceRole);
 		const { error } = await admin.from('events').insert({
 			name,
 			type,

@@ -43,7 +43,7 @@ export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 					console.error('Missing SUPABASE_SECRET_KEY');
 					throw redirect(303, '/');
 				}
-				const admin = createClient(PUBLIC_SUPABASE_URL, serviceRole);
+				const admin = createClient(publicEnv.PUBLIC_SUPABASE_URL, serviceRole);
 				const name =
 					user.user_metadata?.name ||
 					user.user_metadata?.full_name ||
