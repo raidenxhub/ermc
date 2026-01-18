@@ -33,6 +33,11 @@ export async function fetchOnlineControllers() {
 
 		const data: VatsimData = await response.json();
 
+        if (!data || !data.controllers) {
+            console.warn('Invalid VATSIM data format received');
+            return [];
+        }
+
 		// Filter controllers
 		const controllers = data.controllers.filter(
 			(c) => RELEVANT_PREFIXES.some((prefix) => c.callsign.startsWith(prefix)) && c.facility > 0 // Filter out observers if desired, though facility 0 is OBS
