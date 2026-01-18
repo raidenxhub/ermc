@@ -2,10 +2,14 @@ import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals: { supabase }, url }) => {
+	const redirectUrl = process.env.NODE_ENV === 'production' 
+		? 'https://ermc.realkenan.dev/auth/callback' 
+		: `${url.origin}/auth/callback`;
+
 	const { data, error } = await supabase.auth.signInWithOAuth({
 		provider: 'discord',
 		options: {
-			redirectTo: `${url.origin}/auth/callback`,
+			redirectTo: redirectUrl,
 			scopes: 'identify email guilds'
 		}
 	});

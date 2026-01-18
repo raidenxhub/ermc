@@ -54,7 +54,7 @@ export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 				const email = user.email || user.user_metadata?.email;
 				await admin.from('profiles').upsert({
 					id: user.id,
-					name,
+					name, // This might be null if not found, but we handle that in onboarding check
 					email,
 					updated_at: new Date().toISOString()
 				});

@@ -14,7 +14,7 @@ let { data }: PageProps = $props();
 		<enhanced:img src={bgImage} alt="" class="absolute inset-0 -z-20 h-full w-full object-cover object-center" />
 
 		<!-- Background Overlay -->
-		<div class="absolute inset-0 -z-10 bg-black/50"></div>
+		<div class="absolute inset-0 -z-10 bg-black/70"></div>
 
 		<div class="container mx-auto">
 			<div class="flex min-h-dvh flex-col justify-center">
