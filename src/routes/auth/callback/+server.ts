@@ -44,30 +44,37 @@ export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 					throw redirect(303, '/');
 				}
 				const admin = createClient(publicEnv.PUBLIC_SUPABASE_URL!, serviceRole);
-				const name =
-					user.user_metadata?.name ||
-					user.user_metadata?.full_name ||
-					user.user_metadata?.user_name ||
-					user.user_metadata?.preferred_username ||
-					user.user_metadata?.custom_claims?.name ||
-					user.user_metadata?.raw_user_meta_data?.name;
 				const email = user.email || user.user_metadata?.email;
                 const avatar_url = user.user_metadata?.avatar_url || user.user_metadata?.picture;
-                const discord_username = user.user_metadata?.user_name || user.user_metadata?.custom_claims?.global_name;
+                const discord_username = user.user_metadata?.user_name || user.user_metadata?.full_name || user.user_metadata?.custom_claims?.global_name;
 
-				await admin.from('profiles').upsert({
-					id: user.id,
-					name, // This might be null if not found, but we handle that in onboarding check
-					email,
-                    avatar_url,
-                    discord_username,
-					updated_at: new Date().toISOString()
-				});
+                // Check if profile exists first to avoid overwriting Full Name with Discord Name
+                const { data: existingProfile } = await admin.from('profiles').select('*').eq('id', user.id).single();
 
-				// Determine if onboarding is needed; here we use presence of name/email only
-				const { data: profile } = await admin.from('profiles').select('name, email, rating').eq('id', user.id).single();
+                if (existingProfile) {
+                    // Update only technical fields, preserving the user's manually entered Full Name and CID
+                    await admin.from('profiles').update({
+                        email,
+                        avatar_url,
+                        discord_username,
+                        updated_at: new Date().toISOString()
+                    }).eq('id', user.id);
+                } else {
+                    // New user: Insert basic info, leave Name/CID null to trigger onboarding
+                    await admin.from('profiles').insert({
+                        id: user.id,
+                        email,
+                        avatar_url,
+                        discord_username,
+                        updated_at: new Date().toISOString()
+                        // name and cid are intentionally omitted so they are NULL, triggering onboarding
+                    });
+                }
 
-				if (!profile || !profile.name || !profile.email) {
+				// Determine if onboarding is needed
+				const { data: profile } = await admin.from('profiles').select('name, email, rating, cid').eq('id', user.id).single();
+
+				if (!profile || !profile.name || !profile.cid) {
 					throw redirect(303, '/onboarding');
 				}
 			}
