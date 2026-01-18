@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
+	import { Sparkles } from 'lucide-svelte';
 
 import bgImage from '$lib/assets/images/bg.png?enhanced';
  

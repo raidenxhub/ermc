@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { createClient } from '@supabase/supabase-js';
 import { env as privateEnv } from '$env/dynamic/private';
-import { PUBLIC_SUPABASE_URL } from '$env/static/public';
+import { env as publicEnv } from '$env/dynamic/public';
 
 export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) throw redirect(303, '/auth/login');
@@ -44,7 +44,7 @@ export const actions: Actions = {
 			return fail(500, { message: 'Server configuration error.' });
 		}
 
-		const admin = createClient(publicEnv.PUBLIC_SUPABASE_URL, serviceRole);
+		const admin = createClient(publicEnv.PUBLIC_SUPABASE_URL!, serviceRole);
 		const { error } = await admin.from('events').insert({
 			name,
 			type,
