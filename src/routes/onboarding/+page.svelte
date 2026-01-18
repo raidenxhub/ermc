@@ -9,7 +9,7 @@
 
 <main class="flex flex-col min-h-screen">
 	<section class="relative isolate flex-grow bg-cover bg-center bg-no-repeat" style="background-image: url({bgImage});">
-		<enhanced:img src={bgImage} alt="Background Image" class="absolute inset-0 -z-20 h-full w-full object-cover object-center" />
+		<enhanced:img src={bgImage} alt="" class="absolute inset-0 -z-20 h-full w-full object-cover object-center" />
 		<div class="absolute inset-0 -z-10 bg-black/60"></div>
 
 		<div class="container mx-auto flex items-center justify-center py-20">

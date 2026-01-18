@@ -10,7 +10,7 @@ let { data }: PageProps = $props();
 <main class="flex flex-col">
 	<section class="relative isolate min-h-dvh overflow-hidden bg-cover bg-center bg-no-repeat">
 		<!-- Backround Image -->
-		<enhanced:img src={bgImage} alt="Background Image" class="absolute inset-0 -z-20 h-full w-full object-cover object-center" />
+		<enhanced:img src={bgImage} alt="" class="absolute inset-0 -z-20 h-full w-full object-cover object-center" />
 
 		<!-- Background Overlay -->
 		<div class="absolute inset-0 -z-10 bg-black/50"></div>

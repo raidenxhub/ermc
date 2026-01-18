@@ -44,7 +44,6 @@
 		"@supabase/supabase-js": "^2.90.1",
 		"date-fns": "^4.1.0",
 		"lucide-svelte": "^0.460.1",
-		"nodemailer": "^6.9.16",
 		"zod": "^3.24.1"
 	}
 }
