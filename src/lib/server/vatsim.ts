@@ -119,19 +119,51 @@ export async function syncEvents(supabase: SupabaseClient) {
 		// Use the inferred/stored airports for slot generation
 		if (count === 0 && eventRecord.airports && eventRecord.airports.length > 0) {
 			const airports = eventRecord.airports.split(',').filter(a => a.length > 0);
-			const positions = ['DEL', 'GND', 'TWR', 'APP', 'CTR'];
+			const positions = ['DEL', 'GND', 'TWR', 'APP', 'CTR', 'STBY'];
 			const entriesToInsert = [];
+
+            const startTime = new Date(eventRecord.start_time);
+            const endTime = new Date(eventRecord.end_time);
+            const durationMs = endTime.getTime() - startTime.getTime();
+            const durationHours = durationMs / (1000 * 60 * 60);
+
+            // Determine slot duration in milliseconds
+            // 3+ hours -> 90 mins (1.5h)
+            // Under 2 hours (and default) -> 60 mins (1h)
+            // We'll treat 2h to <3h as 60 mins for now to ensure coverage
+            let slotDurationMs = 60 * 60 * 1000; 
+            if (durationHours >= 3) {
+                slotDurationMs = 90 * 60 * 1000;
+            }
 
 			for (const airport of airports) {
 				for (const pos of positions) {
-					entriesToInsert.push({
-						event_id: eventRecord.id,
-						airport: airport,
-						position: `${airport}_${pos}`,
-						start_time: eventRecord.start_time,
-						end_time: eventRecord.end_time,
-						status: 'open'
-					});
+                    let currentSlotStart = new Date(startTime);
+                    
+                    while (currentSlotStart.getTime() < endTime.getTime()) {
+                        let currentSlotEnd = new Date(currentSlotStart.getTime() + slotDurationMs);
+                        
+                        // Cap the last slot at event end time
+                        if (currentSlotEnd.getTime() > endTime.getTime()) {
+                            currentSlotEnd = new Date(endTime);
+                        }
+                        
+                        // Don't create tiny sliver slots (e.g. < 15 mins) unless it's the only slot
+                        if (currentSlotEnd.getTime() - currentSlotStart.getTime() < 15 * 60 * 1000 && currentSlotStart.getTime() !== startTime.getTime()) {
+                             break;
+                        }
+
+                        entriesToInsert.push({
+                            event_id: eventRecord.id,
+                            airport: airport,
+                            position: `${airport}_${pos}`,
+                            start_time: currentSlotStart.toISOString(),
+                            end_time: currentSlotEnd.toISOString(),
+                            status: 'open'
+                        });
+
+                        currentSlotStart = currentSlotEnd;
+                    }
 				}
 			}
 

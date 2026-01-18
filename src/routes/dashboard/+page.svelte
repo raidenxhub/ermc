@@ -140,7 +140,7 @@
                                 </p>
                             </div>
                             <div class="ml-auto font-medium">
-                                <a href="/coordination/events/{event.id}" class="text-blue-500 hover:underline text-sm">View</a>
+                                <a href="/coordination" class="btn btn-sm btn-primary">Book Now</a>
                             </div>
                         </div>
                     {/each}
