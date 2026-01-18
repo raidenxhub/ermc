@@ -17,13 +17,16 @@ let { data }: PageProps = $props();
 
 		<div class="container mx-auto">
 			<div class="flex min-h-dvh flex-col justify-center">
-                <h2 class="text-2xl md:text-4xl">👋 Welcome to</h2>
-                <h1 class="mt-1 text-5xl font-bold text-secondary md:text-7xl">ERMC</h1>
-                <p class="mt-2 max-w-lg">
+                <div class="flex items-center gap-2 mb-2">
+                    <Sparkles class="h-8 w-8 text-white" />
+                    <h2 class="text-2xl md:text-4xl">Welcome to</h2>
+                </div>
+                <h1 class="mt-1 text-5xl font-bold text-white md:text-7xl">ERMC</h1>
+                <p class="mt-2 max-w-lg text-gray-300">
                     ERMC is a third‑party coordination utility. Sign in with Discord to access coordination tools and your dashboard.
                 </p>
                 <div class="mt-6">
-                    <a href="/auth/login" class="btn btn-secondary btn-lg">Start Now</a>
+                    <a href="/auth/login" class="btn btn-primary btn-lg rounded-none">Start Now</a>
                 </div>
             </div>
         </div>

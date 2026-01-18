@@ -7,7 +7,7 @@
     <h1 class="text-3xl font-bold">{data.event.name}</h1>
     <p class="text-sm text-muted-foreground">{new Date(data.event.start_time).toUTCString()} – {new Date(data.event.end_time).toUTCString()}</p>
     {#if data.event.link}
-      <a href={data.event.link} target="_blank" class="btn btn-outline btn-secondary mt-2">External Link</a>
+      <a href={data.event.link} target="_blank" class="btn btn-outline btn-primary mt-2">External Link</a>
     {/if}
   </div>
 

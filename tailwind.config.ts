@@ -25,24 +25,24 @@ export default {
 		themes: [
 			{
 				ermc: {
-					primary: '#003366',
-					'primary-content': '#ffffff', // white (placeholder)
-					secondary: '#d8c8a0',
-					'secondary-content': '#ffffff', // white (placeholder)
-					accent: '#d8c8a0', // levant gold
-					'accent-content': '#ffffff', // white
-					neutral: '#191e24', // light gray
+					primary: '#ffffff', // White
+					'primary-content': '#000000', // Black
+					secondary: '#2a2a2a', // Dark Gray
+					'secondary-content': '#ffffff', // White
+					accent: '#555555', // Gray
+					'accent-content': '#ffffff', // White
+					neutral: '#1a1a1a', // Neutral Dark
 					'neutral-content': '#a6adbb',
-					'base-100': '#191e24', // light gray
-					'base-200': '#15191e', // gray
-					'base-300': '#000000', // black
-					'base-content': '#ffffff', // white (placeholder)
+					'base-100': '#0f0f0f', // Very Dark Gray
+					'base-200': '#050505', // Almost Black
+					'base-300': '#000000', // Pure Black
+					'base-content': '#ffffff', // White
 					info: '#0000ff',
 					'info-content': '#c6dbff',
 					success: '#00ff00',
 					'success-content': '#001600',
-					warning: '#00ff00',
-					'warning-content': '#001600',
+					warning: '#ffff00',
+					'warning-content': '#161600',
 					error: '#ff0000',
 					'error-content': '#160000',
 

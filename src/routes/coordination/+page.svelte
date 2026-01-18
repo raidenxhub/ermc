@@ -8,7 +8,7 @@
     <div class="absolute inset-0 -z-10 bg-black/50"></div>
     <div class="container mx-auto">
       <div class="flex min-h-[40dvh] flex-col items-center justify-center">
-        <h1 class="text-4xl font-bold text-secondary md:text-5xl">ERMC Coordination</h1>
+        <h1 class="text-4xl font-bold text-white md:text-5xl">ERMC Coordination</h1>
         <p class="mt-2 max-w-2xl text-center">Centralized coordination tools for ERMC operations. Sign in to access scheduling and settings through your dashboard.</p>
       </div>
     </div>
