@@ -27,7 +27,11 @@ let { data }: PageProps = $props();
                     ERMC is a third‑party coordination utility. Sign in with Discord to access coordination tools and your dashboard.
                 </p>
                 <div class="mt-6">
-                    <a href="/auth/login" class="btn btn-primary btn-lg rounded-none">Start Now</a>
+                    {#if data.user}
+                        <a href="/rostering" class="btn btn-primary btn-lg rounded-none">Look for events</a>
+                    {:else}
+                        <a href="/auth/login" class="btn btn-primary btn-lg rounded-none">Start Now</a>
+                    {/if}
                 </div>
             </div>
         </div>
