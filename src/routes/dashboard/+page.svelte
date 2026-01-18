@@ -1,11 +1,10 @@
 <script lang="ts">
-    import { enhance } from '$app/forms';
     import type { PageData } from './$types';
     import { format, formatDistanceToNow } from 'date-fns';
-    import { BarChart3, CalendarRange, Settings, Plane, Users, CloudSun } from 'lucide-svelte';
+    import { BarChart3, CalendarRange, Settings } from 'lucide-svelte';
 
     export let data: PageData;
-    const { user, upcomingEvents, profileComplete, onlineControllers, metars } = data;
+    const { user, upcomingEvents, onlineControllers, metars } = data;
 </script>
 
 <div class="space-y-6 p-6 pb-16">

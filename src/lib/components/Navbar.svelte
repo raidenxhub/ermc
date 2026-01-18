@@ -46,7 +46,7 @@
                                     {user.name ? user.name.charAt(0) : 'U'}
                                 </div>
                             </div>
-                            <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+                            <ul tabindex="-1" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
                                 <li class="menu-title">
                                     <span>{user.name || 'User'}</span>
                                     <span class="text-xs font-normal opacity-70">{user.cid} ({user.rating_short})</span>

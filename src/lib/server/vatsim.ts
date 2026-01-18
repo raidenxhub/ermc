@@ -48,12 +48,22 @@ export async function fetchVatsimEvents() {
 		const data = await response.json();
 		const events: VatsimEvent[] = data.data || data;
 
+		// Filter for events that have at least one airport in our relevant list
+        // OR if the event description/title contains keywords like "Middle East", "Gulf", etc.
 		const relevantEvents = events.filter((event) => {
+            // Check airports
 			const airportMatch = event.airports.some((a) => RELEVANT_AIRPORTS.includes(a.icao.toUpperCase()));
+            
+            // Check routes
 			const routeMatch = event.routes.some(
 				(r) => RELEVANT_AIRPORTS.includes(r.departure.toUpperCase()) || RELEVANT_AIRPORTS.includes(r.arrival.toUpperCase())
 			);
-			return airportMatch || routeMatch;
+
+            // Check title/desc keywords (backup)
+            const keywords = ['Gulf', 'Middle East', 'Bahrain', 'Kuwait', 'Emirates', 'Qatar', 'Saudi', 'Oman', 'Iraq', 'Jordan', 'Lebanon'];
+            const textMatch = keywords.some(k => event.name.includes(k) || event.description?.includes(k));
+
+			return airportMatch || routeMatch || textMatch;
 		});
 
 		return relevantEvents;

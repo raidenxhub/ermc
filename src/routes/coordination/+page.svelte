@@ -81,7 +81,7 @@
 											</div>
 
 											<div>
-												{#if slot.user_id === user.id}
+												{#if user && slot.user_id === user.id}
 													<form 
                                                         action="?/cancelSlot" 
                                                         method="POST" 
