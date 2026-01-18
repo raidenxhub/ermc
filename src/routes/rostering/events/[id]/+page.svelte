@@ -3,6 +3,47 @@
 </script>
 
 <div class="container mx-auto px-4 py-8 max-w-5xl space-y-6">
+  {#if data.isStaff}
+    <div class="rounded-xl border bg-card text-card-foreground shadow p-6">
+        <h3 class="font-semibold text-lg mb-4">Manual Slot Management</h3>
+        <form method="POST" action="?/add_slot" class="grid gap-4 md:grid-cols-5 items-end">
+            <input type="hidden" name="event_id" value={data.event.id} />
+            
+            <div class="form-control w-full">
+                <label class="label"><span class="label-text">Airport</span></label>
+                <select name="airport" class="select select-bordered w-full">
+                    <option value="OBBI">OBBI</option>
+                    <option value="OKKK">OKKK</option>
+                </select>
+            </div>
+
+            <div class="form-control w-full">
+                <label class="label"><span class="label-text">Position</span></label>
+                <select name="position" class="select select-bordered w-full">
+                    <option value="DEL">DEL</option>
+                    <option value="GND">GND</option>
+                    <option value="TWR">TWR</option>
+                    <option value="APP">APP</option>
+                    <option value="CTR">CTR</option>
+                    <option value="STBY">STBY</option>
+                </select>
+            </div>
+
+            <div class="form-control w-full">
+                <label class="label"><span class="label-text">Start Time</span></label>
+                <input type="datetime-local" name="start_time" class="input input-bordered w-full" value={new Date(data.event.start_time).toISOString().slice(0, 16)} />
+            </div>
+
+            <div class="form-control w-full">
+                <label class="label"><span class="label-text">End Time</span></label>
+                <input type="datetime-local" name="end_time" class="input input-bordered w-full" value={new Date(data.event.end_time).toISOString().slice(0, 16)} />
+            </div>
+
+            <button class="btn btn-primary w-full">Add Slot</button>
+        </form>
+    </div>
+  {/if}
+
   <div>
     <h1 class="text-3xl font-bold">{data.event.name}</h1>
     <p class="text-sm text-muted-foreground">{new Date(data.event.start_time).toUTCString()} – {new Date(data.event.end_time).toUTCString()}</p>

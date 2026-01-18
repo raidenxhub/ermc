@@ -35,6 +35,14 @@ export const actions: Actions = {
 
 		if (!eventId) return fail(400, { message: 'Missing event ID' });
 
+        // Delete roster entries first to avoid foreign key constraints
+        const { error: rosterError } = await supabase.from('roster_entries').delete().eq('event_id', eventId);
+        if (rosterError) {
+            console.error('Error deleting roster entries:', rosterError);
+            // Continue trying to delete event anyway, or return fail?
+            // If cascade is on, this might be redundant but harmless.
+        }
+
 		const { error } = await supabase.from('events').delete().eq('id', eventId);
         
         // Also delete associated roster entries first if cascade isn't set up (usually helpful)

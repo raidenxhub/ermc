@@ -21,11 +21,54 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, user } 
 			'roster_entry_id',
 			(roster || []).map((r) => r.id)
 		);
+    
+    // Check if user is staff/coordinator
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    const isStaff = profile?.role === 'staff' || profile?.role === 'admin' || profile?.role === 'coordinator';
 
-	return { event, roster: roster || [], claims: claims || [], me: user };
+	return { event, roster: roster || [], claims: claims || [], me: user, isStaff };
 };
 
 export const actions: Actions = {
+    add_slot: async ({ request, locals: { supabase, user } }) => {
+        if (!user) return fail(401, { message: 'Unauthorized' });
+        
+        // Permission check
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+        const isStaff = profile?.role === 'staff' || profile?.role === 'admin' || profile?.role === 'coordinator';
+        
+        if (!isStaff) return fail(403, { message: 'Forbidden' });
+
+        const formData = await request.formData();
+        const event_id = formData.get('event_id') as string;
+        const position = formData.get('position') as string;
+        const airport = formData.get('airport') as string;
+        const start_time = formData.get('start_time') as string;
+        const end_time = formData.get('end_time') as string;
+
+        if (!event_id || !position || !airport || !start_time || !end_time) {
+            return fail(400, { message: 'Missing required fields' });
+        }
+
+        const fullPosition = `${airport}_${position}`;
+
+        const { error } = await supabase.from('roster_entries').insert({
+            event_id,
+            airport,
+            position: fullPosition,
+            start_time: new Date(start_time).toISOString(),
+            end_time: new Date(end_time).toISOString(),
+            status: 'open'
+        });
+
+        if (error) {
+            console.error('Error adding slot:', error);
+            return fail(500, { message: 'Failed to add slot' });
+        }
+
+        return { success: true };
+    },
+
 	claim_primary: async ({ request, locals: { supabase, user } }) => {
 		if (!user) return fail(401, { message: 'Unauthorized' });
 		const form = await request.formData();

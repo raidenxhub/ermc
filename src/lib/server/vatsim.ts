@@ -117,6 +117,7 @@ export async function syncEvents(supabase: SupabaseClient) {
 		const { count } = await supabase.from('roster_entries').select('*', { count: 'exact', head: true }).eq('event_id', eventRecord.id);
 
 		// Use the inferred/stored airports for slot generation
+        // Also force generation if airports exist but no slots (redundant check with count === 0, but explicit)
 		if (count === 0 && eventRecord.airports && eventRecord.airports.length > 0) {
 			const airports = eventRecord.airports.split(',').filter(a => a.length > 0);
 			const positions = ['DEL', 'GND', 'TWR', 'APP', 'CTR', 'STBY'];
