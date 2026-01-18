@@ -45,7 +45,7 @@
 
         <!-- Event Management (Staff Only) -->
         {#if user.role === 'staff' || user.role === 'admin' || user.role === 'coordinator'}
-            <a href="/events/manage" class="group relative overflow-hidden rounded-xl border bg-card p-6 shadow transition-all hover:shadow-lg hover:border-primary/50">
+            <a href="/events/mgmt" class="group relative overflow-hidden rounded-xl border bg-card p-6 shadow transition-all hover:shadow-lg hover:border-primary/50">
                 <div class="flex items-center gap-4">
                     <div class="rounded-full bg-purple-100 p-3 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
                         <Settings size={24} />

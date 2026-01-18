@@ -47,6 +47,36 @@
             </div>
         </div>
 
+        <!-- Discord Account -->
+        <div class="card bg-base-100 shadow-sm border">
+            <div class="card-body">
+                <h2 class="card-title">Discord Account</h2>
+                <p class="text-sm text-muted-foreground">Manage your linked Discord account.</p>
+                
+                <div class="flex flex-col gap-4 mt-2">
+                    <div class="flex items-center justify-between p-3 border rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <div class="avatar">
+                                <div class="w-10 rounded-full">
+                                    <img src={profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.name}`} alt="" />
+                                </div>
+                            </div>
+                            <div>
+                                <div class="font-medium">{profile.discord_username || 'Unknown'}</div>
+                                <div class="text-xs text-muted-foreground">Linked Account</div>
+                            </div>
+                        </div>
+                        <form action="/auth/login" method="GET">
+                             <button class="btn btn-sm btn-outline">
+                                Refresh / Switch
+                             </button>
+                        </form>
+                    </div>
+                    <p class="text-xs text-muted-foreground">To switch accounts or refresh your avatar/username, simply log in again with the desired Discord account.</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Danger Zone -->
         <div class="card bg-base-100 shadow-sm border border-error/20">
             <div class="card-body">
