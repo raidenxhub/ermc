@@ -80,10 +80,10 @@
             <li class="menu-title text-lg mb-2">ERMC Navigation</li>
             {#if user}
                 <li><a href="/dashboard"><Info size={20} /> Dashboard</a></li>
-                <li><a href="/coordination"><Radar size={20} /> Coordination</a></li>
-                <li><a href="/statistics"><BarChart3 size={20} /> Statistics</a></li>
+                <li><a href="/rostering"><Radar size={20} /> Event Rostering</a></li>
+                <li><a href="/coordination"><BarChart3 size={20} /> Coordination</a></li>
                 {#if user.role === 'staff' || user.role === 'admin' || user.role === 'coordinator'}
-                        <li><a href="/events/manage"><Settings size={20} /> Manage Events</a></li>
+                        <li><a href="/events/mgmt"><Settings size={20} /> Manage Events</a></li>
                 {/if}
                 <div class="divider"></div>
                 <li>

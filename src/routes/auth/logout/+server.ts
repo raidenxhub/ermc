@@ -3,5 +3,5 @@ import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ locals: { supabase } }) => {
 	await supabase.auth.signOut();
-	throw redirect(303, '/auth/login');
+	throw redirect(303, '/');
 };
