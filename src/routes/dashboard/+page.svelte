@@ -66,8 +66,11 @@
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="h-4 w-4 text-muted-foreground"><path d="M12 2v20M2 12h20" /></svg>
             </div>
             <div class="p-6 pt-0">
-                <div class="text-2xl font-bold">{user.rating_long || 'N/A'}</div>
-                <p class="text-xs text-muted-foreground">{user.cid || 'Not Connected'}</p>
+                <div class="flex items-center gap-2">
+                    <div class="text-2xl font-bold">{user.rating_long || 'N/A'}</div>
+                    <span class="badge badge-primary">{user.rating_short}</span>
+                </div>
+                <p class="text-xs text-muted-foreground mt-1">{user.cid || 'Not Connected'}</p>
             </div>
         </div>
         <div class="rounded-xl border bg-card text-card-foreground shadow">

@@ -42,8 +42,8 @@
                     {#if user}
                          <div class="dropdown dropdown-end">
                             <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
-                                <div class="w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
-                                    {user.name ? user.name.charAt(0) : 'U'}
+                                <div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg leading-none pb-0.5">
+                                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                                 </div>
                             </div>
                             <ul tabindex="-1" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">

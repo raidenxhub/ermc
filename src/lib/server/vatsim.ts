@@ -52,9 +52,12 @@ export async function fetchVatsimEvents() {
 				(r) => RELEVANT_AIRPORTS.includes(r.departure.toUpperCase()) || RELEVANT_AIRPORTS.includes(r.arrival.toUpperCase())
 			);
 
-            // Check title/desc keywords (backup)
-            const keywords = ['Gulf', 'Middle East', 'Bahrain', 'Kuwait', 'Emirates', 'Qatar', 'Saudi', 'Oman', 'Iraq', 'Jordan', 'Lebanon'];
-            const textMatch = keywords.some(k => event.name.includes(k) || event.description?.includes(k));
+            // Check title/desc keywords (backup) - Case Insensitive
+            const keywords = ['gulf', 'middle east', 'bahrain', 'kuwait', 'emirates', 'qatar', 'saudi', 'oman', 'iraq', 'jordan', 'lebanon'];
+            const textMatch = keywords.some(k => 
+                event.name.toLowerCase().includes(k) || 
+                event.description?.toLowerCase().includes(k)
+            );
 
 			return airportMatch || routeMatch || textMatch;
 		});
@@ -70,6 +73,19 @@ export async function syncEvents(supabase: SupabaseClient) {
 	const events = await fetchVatsimEvents();
 
 	for (const event of events) {
+        // Infer airports if API list is empty but title suggests a specific location
+        let inferredAirports = event.airports.map((a) => a.icao);
+        if (inferredAirports.length === 0) {
+             const title = event.name.toLowerCase();
+             const desc = event.description?.toLowerCase() || '';
+             
+             if (title.includes('bahrain') || desc.includes('bahrain')) inferredAirports.push('OBBI');
+             if (title.includes('kuwait') || desc.includes('kuwait')) inferredAirports.push('OKKK');
+             
+             // Deduplicate
+             inferredAirports = [...new Set(inferredAirports)];
+        }
+
 		// Upsert event into database
 		const { data: eventRecord, error } = await supabase
 			.from('events')
@@ -83,7 +99,7 @@ export async function syncEvents(supabase: SupabaseClient) {
 					type: event.type,
 					start_time: new Date(event.start_time).toISOString(),
 					end_time: new Date(event.end_time).toISOString(),
-					airports: event.airports.map((a) => a.icao).join(','),
+					airports: inferredAirports.join(','),
 					routes: JSON.stringify(event.routes),
 					status: 'published'
 				},
@@ -100,8 +116,9 @@ export async function syncEvents(supabase: SupabaseClient) {
 		// Generate roster slots if none exist
 		const { count } = await supabase.from('roster_entries').select('*', { count: 'exact', head: true }).eq('event_id', eventRecord.id);
 
-		if (count === 0 && eventRecord.airports) {
-			const airports = eventRecord.airports.split(',');
+		// Use the inferred/stored airports for slot generation
+		if (count === 0 && eventRecord.airports && eventRecord.airports.length > 0) {
+			const airports = eventRecord.airports.split(',').filter(a => a.length > 0);
 			const positions = ['DEL', 'GND', 'TWR', 'APP', 'CTR'];
 			const entriesToInsert = [];
 
