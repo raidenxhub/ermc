@@ -2,6 +2,7 @@
     import { enhance } from '$app/forms';
     import type { PageData } from './$types';
     import { format, formatDistanceToNow } from 'date-fns';
+    import { BarChart3, CalendarRange, Settings, Plane, Users, CloudSun } from 'lucide-svelte';
 
     export let data: PageData;
     const { user, upcomingEvents, profileComplete, onlineControllers, metars } = data;
@@ -15,7 +16,52 @@
         </p>
     </div>
 
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <!-- Main Action Buttons -->
+    <div class="grid gap-4 md:grid-cols-3">
+        <!-- Statistics -->
+        <a href="/statistics" class="group relative overflow-hidden rounded-xl border bg-card p-6 shadow transition-all hover:shadow-lg hover:border-primary/50">
+            <div class="flex items-center gap-4">
+                <div class="rounded-full bg-blue-100 p-3 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                    <BarChart3 size={24} />
+                </div>
+                <div>
+                    <h3 class="font-semibold group-hover:text-primary">My Statistics</h3>
+                    <p class="text-sm text-muted-foreground">View your hours and activity</p>
+                </div>
+            </div>
+        </a>
+
+        <!-- Coordination -->
+        <a href="/coordination" class="group relative overflow-hidden rounded-xl border bg-card p-6 shadow transition-all hover:shadow-lg hover:border-primary/50">
+            <div class="flex items-center gap-4">
+                <div class="rounded-full bg-green-100 p-3 text-green-600 dark:bg-green-900/30 dark:text-green-400">
+                    <CalendarRange size={24} />
+                </div>
+                <div>
+                    <h3 class="font-semibold group-hover:text-primary">Coordination</h3>
+                    <p class="text-sm text-muted-foreground">Book slots and view events</p>
+                </div>
+            </div>
+        </a>
+
+        <!-- Event Management (Staff Only) -->
+        {#if user.role === 'staff' || user.role === 'admin' || user.role === 'coordinator'}
+            <a href="/events/manage" class="group relative overflow-hidden rounded-xl border bg-card p-6 shadow transition-all hover:shadow-lg hover:border-primary/50">
+                <div class="flex items-center gap-4">
+                    <div class="rounded-full bg-purple-100 p-3 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
+                        <Settings size={24} />
+                    </div>
+                    <div>
+                        <h3 class="font-semibold group-hover:text-primary">Event Management</h3>
+                        <p class="text-sm text-muted-foreground">Manage events and rosters</p>
+                    </div>
+                </div>
+            </a>
+        {/if}
+    </div>
+
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <div class="col-span-4 rounded-xl border bg-card text-card-foreground shadow">
         <div class="rounded-xl border bg-card text-card-foreground shadow">
             <div class="p-6 flex flex-row items-center justify-between space-y-0 pb-2">
                 <h3 class="tracking-tight text-sm font-medium">Controller Rating</h3>

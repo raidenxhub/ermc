@@ -1,6 +1,10 @@
 <script lang="ts">
   import '../app.css';
   import { onMount } from 'svelte';
+  import { Toaster } from 'svelte-sonner';
+  import Navbar from '$lib/components/Navbar.svelte';
+  import Footer from '$lib/components/Footer.svelte';
+  import { navigating } from '$app/stores';
 
   export let data;
 
@@ -11,41 +15,28 @@
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, _session) => {
       if (_session?.expires_at !== session?.expires_at) {
         // invalidate('supabase:auth');
-        // Reload page logic here if needed, or just let sveltekit handle it
       }
     });
 
-    // Subscribe to real-time knocks for current user
-    const channel = supabase
-      .channel('knocks')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'knocks' }, (payload) => {
-        const row = payload.new as { to_user_id?: string };
-        if (row?.to_user_id && user && row.to_user_id === user.id) {
-          try {
-            const ctx = new AudioContext();
-            const o = ctx.createOscillator();
-            const g = ctx.createGain();
-            o.type = 'sine';
-            o.frequency.value = 880;
-            o.connect(g);
-            g.connect(ctx.destination);
-            g.gain.setValueAtTime(0.001, ctx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.05);
-            o.start();
-            setTimeout(() => {
-              g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.2);
-              o.stop(ctx.currentTime + 0.25);
-            }, 200);
-          } catch { void 0; }
-        }
-      })
-      .subscribe();
-
     return () => {
       subscription.unsubscribe();
-      supabase.removeChannel(channel);
     };
   });
 </script>
 
-<slot />
+<Toaster position="top-right" richColors />
+
+<div class="flex min-h-screen flex-col">
+  <Navbar {user} />
+
+  <main class="flex-1 relative">
+    {#if $navigating}
+      <div class="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <span class="loading loading-spinner loading-lg text-primary"></span>
+      </div>
+    {/if}
+    <slot />
+  </main>
+
+  <Footer />
+</div>

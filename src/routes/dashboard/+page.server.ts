@@ -1,9 +1,16 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { fetchOnlineControllers, fetchMetars } from '$lib/server/vatsimData';
+import { syncEvents } from '$lib/server/vatsim';
 
 export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) throw redirect(303, '/auth/login');
+
+	// Sync VATSIM Events (Fire and forget, or await if critical)
+	// We verify if we need to sync to avoid spamming.
+	// For now, we'll just run it every time dashboard loads but rely on upsert to handle dups.
+	// Ideally this should be a cron job.
+	await syncEvents(supabase);
 
 	// Fetch user profile
 	const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
