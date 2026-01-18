@@ -84,7 +84,9 @@
     {#if !data.access}
         <div class="flex-1 flex items-center justify-center">
             <div class="max-w-md text-center space-y-4 p-8 border rounded-xl bg-card shadow-lg">
-                <div class="text-4xl">🚫</div>
+                <div class="flex justify-center">
+                    <Ban size={48} class="text-error" />
+                </div>
                 <h1 class="text-2xl font-bold">Access Denied</h1>
                 <p class="text-muted-foreground">{data.reason}</p>
                 {#if data.booking}
