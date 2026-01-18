@@ -25,8 +25,23 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.user = user;
 
 	// Protected Routes
-	if (event.url.pathname.startsWith('/dashboard') && !event.locals.user) {
-		throw redirect(303, '/auth/login');
+	if (event.url.pathname.startsWith('/dashboard')) {
+		if (!event.locals.user) {
+			throw redirect(303, '/auth/login');
+		}
+
+		// Enforce Onboarding
+		if (event.locals.user) {
+			const { data: profile } = await event.locals.supabase
+				.from('profiles')
+				.select('name, email, cid, rating, subdivision')
+				.eq('id', event.locals.user.id)
+				.single();
+
+			if (!profile || !profile.name || !profile.email || !profile.cid || !profile.rating || !profile.subdivision) {
+				throw redirect(303, '/onboarding');
+			}
+		}
 	}
 
 	return resolve(event, {
