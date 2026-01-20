@@ -13,7 +13,10 @@ CREATE TABLE public.profiles (
   region TEXT,
   division TEXT,
   subdivision TEXT,
+  position TEXT,
   role TEXT DEFAULT 'guest',
+  ermc_access_granted boolean not null default false,
+  ermc_access_verified_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -153,6 +156,23 @@ CREATE POLICY "Users can see knocks they sent or receive" ON public.knocks
 
 CREATE POLICY "Users can create knocks they send" ON public.knocks
   FOR INSERT WITH CHECK (auth.uid() = from_user_id);
+
+-- Messages table for coordination chat (realtime)
+CREATE TABLE public.messages (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  event_id UUID REFERENCES public.events(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Messages are viewable by everyone" ON public.messages
+  FOR SELECT USING (true);
+
+CREATE POLICY "Users can insert their own messages" ON public.messages
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Function to handle new user signup (Trigger)
 CREATE OR REPLACE FUNCTION public.handle_new_user()

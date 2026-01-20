@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { browser } from '$app/environment';
   import { enhance } from '$app/forms';
   import { goto } from '$app/navigation';
   import { toast } from 'svelte-sonner';
@@ -6,32 +7,37 @@
   export let form;
 
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
+  type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
 
-  const enhanceCreate = enhance(() => {
-    submitState = 'loading';
-    return async ({ result, update }) => {
-      if (result.type === 'redirect') {
-        submitState = 'success';
-        toast.success('Event created successfully.');
-        const location = (result as { location: string }).location;
-        await new Promise((r) => setTimeout(r, 2000));
-        await goto(location);
-        return;
-      }
+  const useEnhanceCreate = (formEl: HTMLFormElement) => {
+    if (!browser) return;
+    const submit: SubmitFunction = () => {
+      submitState = 'loading';
+      return async ({ result, update }) => {
+        if (result.type === 'redirect') {
+          submitState = 'success';
+          toast.success('Event created successfully.');
+          const location = (result as { location: string }).location;
+          await new Promise((r) => setTimeout(r, 2000));
+          await goto(location);
+          return;
+        }
 
-      await update();
+        await update();
 
-      if (result.type === 'failure') {
-        submitState = 'error';
-        const message = (result.data as { message?: string })?.message || 'Failed to create event.';
-        toast.error(message);
-        setTimeout(() => (submitState = 'idle'), 2000);
-        return;
-      }
+        if (result.type === 'failure') {
+          submitState = 'error';
+          const message = (result.data as { message?: string })?.message || 'Failed to create event.';
+          toast.error(message);
+          setTimeout(() => (submitState = 'idle'), 2000);
+          return;
+        }
 
-      submitState = 'idle';
+        submitState = 'idle';
+      };
     };
-  });
+    return enhance(formEl, submit);
+  };
 </script>
 
 <div class="container mx-auto px-4 py-8 max-w-2xl">
@@ -53,7 +59,7 @@
         </div>
     {/if}
 
-  <form method="POST" use:enhanceCreate class="space-y-6 bg-card p-6 rounded-xl border shadow-sm">
+  <form method="POST" use:useEnhanceCreate class="space-y-6 bg-card p-6 rounded-xl border shadow-sm">
     <div>
       <label for="name" class="label text-sm font-medium">Event Name</label>
       <input id="name" name="name" type="text" required class="input input-bordered w-full" placeholder="e.g. ERMC Shuttle" />
@@ -96,13 +102,10 @@
     >
       {#if submitState === 'loading'}
         <LoaderCircle size={18} class="animate-spin" />
-        Creating...
       {:else if submitState === 'success'}
         <Check size={18} />
-        Created
       {:else if submitState === 'error'}
         <X size={18} />
-        Failed
       {:else}
         Create Event
       {/if}

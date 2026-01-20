@@ -22,63 +22,63 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, user } 
 			'roster_entry_id',
 			(roster || []).map((r) => r.id)
 		);
-    
-    // Check if user is staff/coordinator
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    const isStaff = profile?.role === 'staff' || profile?.role === 'admin' || profile?.role === 'coordinator';
+
+	// Check if user is staff/coordinator
+	const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+	const isStaff = profile?.role === 'staff' || profile?.role === 'admin' || profile?.role === 'coordinator';
 
 	return { event, roster: roster || [], claims: claims || [], me: user, isStaff };
 };
 
 export const actions: Actions = {
-    add_slot: async ({ request, locals: { supabase, user } }) => {
-        if (!user) return fail(401, { message: 'Unauthorized' });
+	add_slot: async ({ request, locals: { supabase, user } }) => {
+		if (!user) return fail(401, { message: 'Unauthorized' });
 		if (!supabase) return fail(500, { message: 'Server configuration error.' });
-        
-        // Permission check
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-        const isStaff = profile?.role === 'staff' || profile?.role === 'admin' || profile?.role === 'coordinator';
-        
-        if (!isStaff) return fail(403, { message: 'Forbidden' });
 
-        const formData = await request.formData();
-        const event_id = formData.get('event_id') as string;
-        const position = formData.get('position') as string;
-        const airport = formData.get('airport') as string;
-        const start_time = formData.get('start_time') as string;
-        const end_time = formData.get('end_time') as string;
+		// Permission check
+		const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+		const isStaff = profile?.role === 'staff' || profile?.role === 'admin' || profile?.role === 'coordinator';
 
-        if (!event_id || !position || !airport || !start_time || !end_time) {
-            return fail(400, { message: 'Missing required fields' });
-        }
+		if (!isStaff) return fail(403, { message: 'Forbidden' });
 
-        // Validate airport against event
-        const { data: event } = await supabase.from('events').select('airports').eq('id', event_id).single();
-        if (!event) return fail(404, { message: 'Event not found' });
+		const formData = await request.formData();
+		const event_id = formData.get('event_id') as string;
+		const position = formData.get('position') as string;
+		const airport = formData.get('airport') as string;
+		const start_time = formData.get('start_time') as string;
+		const end_time = formData.get('end_time') as string;
 
-        const allowed = event.airports ? event.airports.split(',').map((a: string) => a.trim().toUpperCase()) : [];
-        if (!allowed.includes(airport) || !['OBBI', 'OKKK'].includes(airport)) {
-             return fail(400, { message: 'Airport not allowed for this event or not managed by ERMC.' });
-        }
+		if (!event_id || !position || !airport || !start_time || !end_time) {
+			return fail(400, { message: 'Missing required fields' });
+		}
 
-        const fullPosition = `${airport}_${position}`;
+		// Validate airport against event
+		const { data: event } = await supabase.from('events').select('airports').eq('id', event_id).single();
+		if (!event) return fail(404, { message: 'Event not found' });
 
-        const { error } = await supabase.from('roster_entries').insert({
-            event_id,
-            airport,
-            position: fullPosition,
-            start_time: new Date(start_time).toISOString(),
-            end_time: new Date(end_time).toISOString(),
-            status: 'open'
-        });
+		const allowed = event.airports ? event.airports.split(',').map((a: string) => a.trim().toUpperCase()) : [];
+		if (!allowed.includes(airport) || !['OBBI', 'OKKK'].includes(airport)) {
+			return fail(400, { message: 'Airport not allowed for this event or not managed by ERMC.' });
+		}
 
-        if (error) {
-            console.error('Error adding slot:', error);
-            return fail(500, { message: 'Failed to add slot' });
-        }
+		const fullPosition = `${airport}_${position}`;
 
-        return { success: true };
-    },
+		const { error } = await supabase.from('roster_entries').insert({
+			event_id,
+			airport,
+			position: fullPosition,
+			start_time: new Date(start_time).toISOString(),
+			end_time: new Date(end_time).toISOString(),
+			status: 'open'
+		});
+
+		if (error) {
+			console.error('Error adding slot:', error);
+			return fail(500, { message: 'Failed to add slot' });
+		}
+
+		return { success: true };
+	},
 
 	claim_primary: async ({ request, locals: { supabase, user } }) => {
 		if (!user) return fail(401, { message: 'Unauthorized' });
@@ -92,12 +92,12 @@ export const actions: Actions = {
 		if (!entry) return fail(404, { message: 'Slot not found' });
 		if (entry.user_id) return fail(400, { message: 'Slot already claimed' });
 
-        // Booking Window Check: Closed 15 mins before event start
-        const now = Date.now();
-        const startTime = new Date(entry.event.start_time).getTime();
-        if (now > startTime - 15 * 60 * 1000) {
-            return fail(400, { message: 'Booking is closed (closes 15m before event).' });
-        }
+		// Booking Window Check: Closed 15 mins before event start
+		const now = Date.now();
+		const startTime = new Date(entry.event.start_time).getTime();
+		if (now > startTime - 15 * 60 * 1000) {
+			return fail(400, { message: 'Booking is closed (closes 15m before event).' });
+		}
 
 		// create primary claim (trigger will set roster_entries.user_id)
 		const { error } = await supabase.from('roster_claims').insert({ roster_entry_id, user_id: user.id, type: 'primary' });

@@ -16,11 +16,12 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 
 	const totalEvents = history?.length || 0;
 	// Calculate rough hours
-	const totalHours = history?.reduce((acc, entry) => {
-		const start = new Date(entry.start_time).getTime();
-		const end = new Date(entry.end_time).getTime();
-		return acc + (end - start) / (1000 * 60 * 60);
-	}, 0) || 0;
+	const totalHours =
+		history?.reduce((acc, entry) => {
+			const start = new Date(entry.start_time).getTime();
+			const end = new Date(entry.end_time).getTime();
+			return acc + (end - start) / (1000 * 60 * 60);
+		}, 0) || 0;
 
 	return {
 		history: history || [],

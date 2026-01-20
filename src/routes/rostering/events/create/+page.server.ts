@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { createClient } from '@supabase/supabase-js';
+import { randomUUID } from 'crypto';
 import { env as privateEnv } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
 import { generateRosterSlots } from '$lib/server/vatsim';
@@ -57,25 +58,30 @@ export const actions: Actions = {
 		const admin = createClient(supabaseUrl, serviceRole, {
 			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
 		});
-		const { data: eventRecord, error } = await admin.from('events').insert({
-			name,
-			type,
-			start_time: toUtcIso(start_time),
-			end_time: toUtcIso(end_time),
-			airports,
-			link,
-			description,
-			banner,
-			status: 'published'
-		}).select().single();
+		const { data: eventRecord, error } = await admin
+			.from('events')
+			.insert({
+				id: randomUUID(),
+				name,
+				type,
+				start_time: toUtcIso(start_time),
+				end_time: toUtcIso(end_time),
+				airports,
+				link,
+				description,
+				banner,
+				status: 'published'
+			})
+			.select()
+			.single();
 
 		if (error || !eventRecord) {
 			console.error(error);
 			return fail(500, { message: error?.message ? `Failed to create event: ${error.message}` : 'Failed to create event.' });
 		}
 
-        // Auto-generate slots
-        await generateRosterSlots(admin, eventRecord);
+		// Auto-generate slots
+		await generateRosterSlots(admin, eventRecord);
 
 		throw redirect(303, '/events/mgmt');
 	}

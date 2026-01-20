@@ -1,12 +1,21 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { X } from 'lucide-svelte';
 
 	let visible = $state(false);
 
-	// Show the toast for 1 second, then hide it after 10 seconds
-	setTimeout(() => (visible = true), 1000);
-	setTimeout(() => (visible = false), 10000);
+	onMount(() => {
+		const consent = localStorage.getItem('cookie-consent');
+		if (!consent) return;
+
+		const seen = sessionStorage.getItem('contact-toast-seen');
+		if (seen) return;
+		sessionStorage.setItem('contact-toast-seen', '1');
+
+		setTimeout(() => (visible = true), 800);
+		setTimeout(() => (visible = false), 10000);
+	});
 </script>
 
 {#if visible}
@@ -17,7 +26,7 @@
 			</button>
 
 			<span>
-				Looking to give ATC feedback? Click <a href="/atc/feedback" class="btn-link text-secondary transition-opacity hover:opacity-50"
+				Looking to get in touch? Click <a href="/contact" class="btn-link text-secondary transition-opacity hover:opacity-50"
 					>here</a
 				>.
 			</span>

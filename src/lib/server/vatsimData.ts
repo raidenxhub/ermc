@@ -29,15 +29,13 @@ export async function fetchOnlineControllers() {
 
 		const data: VatsimData = await response.json();
 
-        if (!data || !data.controllers) {
-            console.warn('Invalid VATSIM data format received');
-            return [];
-        }
+		if (!data || !data.controllers) {
+			console.warn('Invalid VATSIM data format received');
+			return [];
+		}
 
 		// Filter controllers
-		const controllers = data.controllers.filter(
-			(c) => RELEVANT_AIRPORTS.some((icao) => c.callsign.startsWith(icao)) && c.facility > 0
-		);
+		const controllers = data.controllers.filter((c) => RELEVANT_AIRPORTS.some((icao) => c.callsign.startsWith(icao)) && c.facility > 0);
 
 		// Map simplified data
 		return controllers.map((c) => ({

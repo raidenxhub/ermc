@@ -7,11 +7,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) throw redirect(303, '/auth/login');
 	if (!supabase) throw redirect(303, '/?error=Server%20configuration%20error');
 
-	// Sync VATSIM Events (Fire and forget, or await if critical)
-	// We verify if we need to sync to avoid spamming.
-	// For now, we'll just run it every time dashboard loads but rely on upsert to handle dups.
-	// Ideally this should be a cron job.
-	await syncEvents(supabase);
+	syncEvents(supabase).catch((e) => console.error('Dashboard syncEvents failed:', e));
 
 	// Fetch user profile
 	const { data: profile, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).single();

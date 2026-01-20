@@ -4,7 +4,7 @@
     import { goto, invalidateAll } from '$app/navigation';
     import { createClient } from '@supabase/supabase-js';
     import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
-    import { Send, Bell, Ban, Check } from 'lucide-svelte';
+    import { Send, Bell, Ban, Check, Volume2, X, LoaderCircle } from 'lucide-svelte';
     import { toast } from 'svelte-sonner';
 
     export let data;
@@ -21,24 +21,86 @@
     let messageInput = '';
     let chatContainer: HTMLElement;
     let messages = data.messages || [];
+    let onlineRoster = data.onlineRoster || [];
+    $: onlineRoster = data.onlineRoster || [];
     let sendState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
+    let knockStateByUserId: Record<string, 'idle' | 'loading' | 'success' | 'error'> = {};
+    type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
 
-    // Sound effect
-    // We'll use a simple beep using AudioContext or a data URI if no file exists
-    // Using a simple base64 beep for now to ensure it works without external files
-    const knockSound = 'data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU'; // This is likely invalid/empty, let's use a real one or just visual toast if fail.
-    // Actually, let's try to play a browser notification sound or just rely on toast for now if file missing.
-    
-    function playKnock() {
+    let alertVolume = 0.35;
+    let audioReady = false;
+    let alertAudio: HTMLAudioElement | null = null;
+
+    const clampVolume = (value: number) => Math.min(1, Math.max(0.05, value));
+
+    function playAlert() {
+        if (!audioReady || !alertAudio) return;
+        if (!alertAudio.paused) return;
         try {
-            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); // Public domain knock/bell sound
-            audio.play().catch(e => console.error('Audio play failed', e));
-        } catch (e) {
-            console.error('Audio setup failed', e);
-        }
+            alertAudio.volume = clampVolume(alertVolume);
+            alertAudio.currentTime = 0;
+            void alertAudio.play().catch(() => {});
+        } catch (e) { void e; }
     }
 
+    const setKnockState = (userId: string, state: 'idle' | 'loading' | 'success' | 'error') => {
+        knockStateByUserId = { ...knockStateByUserId, [userId]: state };
+    };
+
+    const knockSubmit = (toUserId: string): SubmitFunction => () => {
+        setKnockState(toUserId, 'loading');
+        return async ({ result, update }) => {
+            await update({ reset: false });
+            if (result.type === 'success') {
+                setKnockState(toUserId, 'success');
+                setTimeout(() => setKnockState(toUserId, 'idle'), 2000);
+                return;
+            }
+            setKnockState(toUserId, 'error');
+            setTimeout(() => setKnockState(toUserId, 'idle'), 2000);
+        };
+    };
+
+    const sendSubmit: SubmitFunction = () => {
+        sendState = 'loading';
+        return async ({ result, update }) => {
+            if (result.type === 'success') {
+                messageInput = '';
+                await update({ reset: false });
+                scrollToBottom();
+                sendState = 'success';
+                setTimeout(() => (sendState = 'idle'), 2000);
+                return;
+            }
+
+            await update({ reset: false });
+            sendState = 'error';
+            toast.error('Failed to send message.');
+            setTimeout(() => (sendState = 'idle'), 2000);
+        };
+    };
+
     onMount(() => {
+        try {
+            const stored = localStorage.getItem('ermc:alertVolume');
+            if (stored) {
+                const parsed = Number.parseFloat(stored);
+                if (Number.isFinite(parsed)) alertVolume = clampVolume(parsed);
+            }
+        } catch (e) { void e; }
+
+        alertAudio = new Audio('/alert.mp3');
+        alertAudio.preload = 'auto';
+        alertAudio.volume = clampVolume(alertVolume);
+
+        const unlock = () => {
+            audioReady = true;
+            window.removeEventListener('pointerdown', unlock);
+            window.removeEventListener('keydown', unlock);
+        };
+        window.addEventListener('pointerdown', unlock, { once: true });
+        window.addEventListener('keydown', unlock, { once: true });
+
         if (data.access && data.event) {
             scrollToBottom();
 
@@ -61,14 +123,18 @@
                     
                     messages = [...messages, newMessage];
                     setTimeout(scrollToBottom, 50);
+
+                    if (document.visibilityState !== 'visible' && payload.new.user_id !== data.user.id) {
+                        playAlert();
+                    }
                 })
                 .subscribe();
 
             // Subscribe to Knocks
             const knockChannel = supabase
                 .channel(`knocks:${data.user.id}`)
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'knocks', filter: `to_user_id=eq.${data.user.id}` }, (payload) => {
-                    playKnock();
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'knocks', filter: `to_user_id=eq.${data.user.id}` }, () => {
+                    playAlert();
                     toast.message('Knock Knock!', { description: 'Someone is trying to get your attention.' });
                 })
                 .subscribe();
@@ -76,6 +142,10 @@
             return () => {
                 supabase.removeChannel(messageChannel);
                 supabase.removeChannel(knockChannel);
+                try {
+                    alertAudio?.pause();
+                    alertAudio = null;
+                } catch (e) { void e; }
             };
         }
 
@@ -84,7 +154,13 @@
             invalidateAll();
         }, 10000);
 
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            try {
+                alertAudio?.pause();
+                alertAudio = null;
+            } catch (e) { void e; }
+        };
     });
 
     function scrollToBottom() {
@@ -133,7 +209,7 @@
                 <p class="text-sm text-muted-foreground">{data.event.name} • {data.booking.position}</p>
             </div>
             <div class="flex gap-2">
-                 <span class="badge badge-outline">{data.onlineRoster.filter(r => r.isOnline).length} Online</span>
+                 <span class="badge badge-outline">{onlineRoster.filter(r => r.isOnline).length} Online</span>
             </div>
         </div>
 
@@ -160,24 +236,7 @@
                     <form 
                         method="POST" 
                         action="?/sendMessage" 
-                        use:enhance={() => {
-                            sendState = 'loading';
-                            return async ({ result, update }) => {
-                                if (result.type === 'success') {
-                                    messageInput = '';
-                                    await update({ reset: false });
-                                    scrollToBottom();
-                                    sendState = 'success';
-                                    setTimeout(() => (sendState = 'idle'), 2000);
-                                    return;
-                                }
-
-                                await update({ reset: false });
-                                sendState = 'error';
-                                toast.error('Failed to send message.');
-                                setTimeout(() => (sendState = 'idle'), 2000);
-                            };
-                        }}
+                        use:enhance={sendSubmit}
                         class="flex gap-2"
                     >
                         <input type="hidden" name="event_id" value={data.event.id} />
@@ -194,9 +253,11 @@
                             disabled={sendState === 'loading' || sendState === 'success'}
                         >
                             {#if sendState === 'loading'}
-                                <span class="loading loading-spinner loading-sm"></span>
+                                <LoaderCircle size={18} class="animate-spin" />
                             {:else if sendState === 'success'}
                                 <Check size={18} />
+                            {:else if sendState === 'error'}
+                                <X size={18} />
                             {:else}
                                 <Send size={18} />
                             {/if}
@@ -207,9 +268,30 @@
 
             <!-- Sidebar: Online Roster -->
             <div class="border rounded-xl bg-card shadow-sm overflow-hidden flex flex-col">
-                <div class="p-4 border-b bg-muted/30 font-medium">Active Controllers</div>
+                <div class="p-4 border-b bg-muted/30 flex items-center justify-between gap-3">
+                    <div class="font-medium">Active Controllers</div>
+                    <div class="flex items-center gap-2">
+                        <Volume2 size={16} class="opacity-70" />
+                        <input
+                            type="range"
+                            min="0.05"
+                            max="1"
+                            step="0.05"
+                            value={alertVolume}
+                            class="range range-xs w-24"
+                            on:input={(e) => {
+                                const v = Number.parseFloat((e.currentTarget as HTMLInputElement).value);
+                                alertVolume = clampVolume(Number.isFinite(v) ? v : 0.35);
+                                try {
+                                    localStorage.setItem('ermc:alertVolume', String(alertVolume));
+                                } catch (e) { void e; }
+                                if (alertAudio) alertAudio.volume = alertVolume;
+                            }}
+                        />
+                    </div>
+                </div>
                 <div class="flex-1 overflow-y-auto p-2 space-y-1">
-                    {#each data.onlineRoster as controller}
+                    {#each onlineRoster as controller}
                         <div class="flex items-center justify-between p-3 rounded-lg border {controller.isOnline ? 'bg-green-500/5 border-green-500/20' : 'opacity-60 grayscale'}">
                             <div class="flex items-center gap-3">
                                 <div class="avatar placeholder">
@@ -224,18 +306,30 @@
                             </div>
                             
                             {#if controller.isOnline && controller.user_id !== data.user.id}
-                                <form method="POST" action="?/knock" use:enhance>
+                                <form method="POST" action="?/knock" use:enhance={knockSubmit(controller.user_id)}>
                                     <input type="hidden" name="to_user_id" value={controller.user_id} />
                                     <input type="hidden" name="event_id" value={data.event.id} />
-                                    <button class="btn btn-ghost btn-xs btn-square text-warning" title="Knock">
-                                        <Bell size={16} />
+                                    <button
+                                        class="btn btn-xs btn-square {knockStateByUserId[controller.user_id] === 'success' ? 'btn-success' : knockStateByUserId[controller.user_id] === 'error' ? 'btn-error' : 'btn-ghost'} {knockStateByUserId[controller.user_id] === 'idle' ? 'text-warning' : ''}"
+                                        disabled={knockStateByUserId[controller.user_id] === 'loading' || knockStateByUserId[controller.user_id] === 'success'}
+                                        title="Knock"
+                                    >
+                                        {#if knockStateByUserId[controller.user_id] === 'loading'}
+                                            <LoaderCircle size={16} class="animate-spin" />
+                                        {:else if knockStateByUserId[controller.user_id] === 'success'}
+                                            <Check size={16} />
+                                        {:else if knockStateByUserId[controller.user_id] === 'error'}
+                                            <X size={16} />
+                                        {:else}
+                                            <Bell size={16} />
+                                        {/if}
                                     </button>
                                 </form>
                             {/if}
                         </div>
                     {/each}
                     
-                    {#if data.onlineRoster.length === 0}
+                    {#if onlineRoster.length === 0}
                          <div class="p-4 text-center text-sm text-muted-foreground">No active controllers.</div>
                     {/if}
                 </div>

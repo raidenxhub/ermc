@@ -1,12 +1,42 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { enhance } from '$app/forms';
 	import type { PageData } from './$types';
 	import { format } from 'date-fns';
-	import { Plus, Edit, Trash2, Calendar } from 'lucide-svelte';
+	import { Plus, Edit, Trash2, Check, X, LoaderCircle } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
 	export let data: PageData;
 	const { events } = data;
+
+	let deleteStateById: Record<string, 'idle' | 'loading' | 'success' | 'error'> = {};
+	type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
+
+	const setDeleteState = (id: string, state: 'idle' | 'loading' | 'success' | 'error') => {
+		deleteStateById = { ...deleteStateById, [id]: state };
+	};
+
+	const useEnhanceDelete = (formEl: HTMLFormElement, eventId: string) => {
+		if (!browser) return;
+		const submit: SubmitFunction = () => {
+			setDeleteState(eventId, 'loading');
+			return async ({ result, update }) => {
+				if (result.type === 'success') {
+					setDeleteState(eventId, 'success');
+					toast.success('Event deleted successfully');
+					await update();
+					setTimeout(() => setDeleteState(eventId, 'idle'), 2000);
+					return;
+				}
+
+				await update();
+				setDeleteState(eventId, 'error');
+				toast.error('Failed to delete event');
+				setTimeout(() => setDeleteState(eventId, 'idle'), 2000);
+			};
+		};
+		return enhance(formEl, submit);
+	};
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -55,19 +85,23 @@
 								<form 
 									action="?/deleteEvent" 
 									method="POST" 
-									use:enhance={() => {
-										return async ({ result }) => {
-											if (result.type === 'success') {
-												toast.success('Event deleted successfully');
-											} else {
-												toast.error('Failed to delete event');
-											}
-										};
-									}}
+									use:useEnhanceDelete={event.id}
 								>
 									<input type="hidden" name="id" value={event.id} />
-									<button type="submit" class="btn btn-ghost btn-sm btn-square text-error hover:bg-error/10">
-										<Trash2 size={16} />
+									<button
+										type="submit"
+										class="btn btn-sm btn-square {deleteStateById[event.id] === 'success' ? 'btn-success' : deleteStateById[event.id] === 'error' ? 'btn-error' : 'btn-ghost'} {deleteStateById[event.id] === 'idle' ? 'text-error hover:bg-error/10' : ''}"
+										disabled={deleteStateById[event.id] === 'loading' || deleteStateById[event.id] === 'success'}
+									>
+										{#if deleteStateById[event.id] === 'loading'}
+											<LoaderCircle size={16} class="animate-spin" />
+										{:else if deleteStateById[event.id] === 'success'}
+											<Check size={16} />
+										{:else if deleteStateById[event.id] === 'error'}
+											<X size={16} />
+										{:else}
+											<Trash2 size={16} />
+										{/if}
 									</button>
 								</form>
 							</div>

@@ -9,12 +9,12 @@
 		<div class="footer footer-center gap-4 py-10">
 			<aside>
                 <div class="mb-2">
-                    <Logo size={44} />
+                    <Logo size={154} />
                 </div>
-                <p class="text-neutral-content font-medium">© 2026 ERMC • Third‑party utility for flight simulation</p>
+                <p class="text-neutral-content font-medium">© 2026 ERMC • Third‑party utility for virtual flight networks.</p>
                 <p class="text-xs text-neutral-content/60 max-w-md mx-auto mt-2">
-                    Not affiliated with VATSIM or any real-world aviation authority. 
-                    For flight simulation use only.
+                    Not affiliated with any real-world aviation authority. 
+                    For flight simulation use only. 
                 </p>
 			</aside>
             <nav class="flex flex-wrap justify-center gap-4 text-sm text-neutral-content/80">

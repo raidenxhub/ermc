@@ -19,7 +19,7 @@ export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 				data: { user }
 			} = await supabase.auth.getUser();
 
-			// Verify Discord guild membership 
+			// Verify Discord guild membership
 			if (session?.provider_token) {
 				const resp = await fetch('https://discord.com/api/users/@me/guilds', {
 					headers: { Authorization: `Bearer ${session.provider_token}` }
@@ -44,43 +44,47 @@ export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 					console.error('Missing SUPABASE_SECRET_KEY');
 					throw redirect(303, '/');
 				}
-				const admin = createClient(publicEnv.PUBLIC_SUPABASE_URL!, serviceRole);
-				const email = user.email || user.user_metadata?.email;
-                const avatar_url = user.user_metadata?.avatar_url || user.user_metadata?.picture;
-                const discord_username = user.user_metadata?.user_name || user.user_metadata?.full_name || user.user_metadata?.custom_claims?.global_name;
-
-                // Check if profile exists first to avoid overwriting Full Name with Discord Name
-                const { data: existingProfile } = await admin.from('profiles').select('*').eq('id', user.id).single();
-
-                if (existingProfile) {
-                    // Update only technical fields, preserving the user's manually entered Full Name and CID
-                    await admin.from('profiles').update({
-                        email,
-                        avatar_url,
-                        discord_username,
-                        updated_at: new Date().toISOString()
-                    }).eq('id', user.id);
-                } else {
-                    // New user: Insert basic info, leave Name/CID null to trigger onboarding
-                    await admin.from('profiles').insert({
-                        id: user.id,
-                        email,
-                        avatar_url,
-                        discord_username,
-                        updated_at: new Date().toISOString()
-                        // name and cid are intentionally omitted so they are NULL, triggering onboarding
-                    });
-                }
-
-				// Determine if onboarding is needed
-				const { data: profile } = await admin.from('profiles').select('name, email, rating, cid').eq('id', user.id).single();
-
-				if (!profile || !profile.name || !profile.cid) {
-					throw redirect(303, '/onboarding');
+				const supabaseUrl = privateEnv.PUBLIC_SUPABASE_URL || publicEnv.PUBLIC_SUPABASE_URL;
+				if (!supabaseUrl) {
+					console.error('Missing PUBLIC_SUPABASE_URL');
+					throw redirect(303, '/');
 				}
+				const admin = createClient(supabaseUrl, serviceRole);
+				const email = user.email || user.user_metadata?.email;
+				const avatar_url = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+				const discord_username =
+					user.user_metadata?.user_name || user.user_metadata?.full_name || user.user_metadata?.custom_claims?.global_name;
+
+				// Check if profile exists first to avoid overwriting Full Name with Discord Name
+				const { data: existingProfile } = await admin.from('profiles').select('*').eq('id', user.id).single();
+
+				if (existingProfile) {
+					// Update only technical fields, preserving the user's manually entered Full Name and CID
+					await admin
+						.from('profiles')
+						.update({
+							email,
+							avatar_url,
+							discord_username,
+							updated_at: new Date().toISOString()
+						})
+						.eq('id', user.id);
+				} else {
+					// New user: Insert basic info, leave Name/CID null to trigger onboarding
+					await admin.from('profiles').insert({
+						id: user.id,
+						email,
+						avatar_url,
+						discord_username,
+						updated_at: new Date().toISOString()
+						// name and cid are intentionally omitted so they are NULL, triggering onboarding
+					});
+				}
+
+				// Continue to consent screen (it will redirect to onboarding/dashboard as needed)
 			}
 
-			throw redirect(303, next);
+			throw redirect(303, `/oauth/consent?next=${encodeURIComponent(next)}`);
 		}
 	}
 

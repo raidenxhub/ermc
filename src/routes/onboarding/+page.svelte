@@ -1,10 +1,42 @@
 <script lang="ts">
+    import { browser } from '$app/environment';
     import { enhance } from '$app/forms';
-    import { UserPlus, Check } from 'lucide-svelte';
+    import { goto } from '$app/navigation';
+    import { UserPlus, Check, X, LoaderCircle } from 'lucide-svelte';
     import bgImage from '$lib/assets/images/bg.png?enhanced';
 
     export let form;
     export let data;
+
+    let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
+    type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
+
+    const useEnhanceOnboarding = (formEl: HTMLFormElement) => {
+        if (!browser) return;
+        const submit: SubmitFunction = () => {
+            submitState = 'loading';
+            return async ({ result, update }) => {
+                if (result.type === 'redirect') {
+                    submitState = 'success';
+                    const location = (result as { location: string }).location;
+                    await new Promise((r) => setTimeout(r, 2000));
+                    await goto(location);
+                    return;
+                }
+
+                await update({ reset: false });
+
+                if (result.type === 'failure') {
+                    submitState = 'error';
+                    setTimeout(() => (submitState = 'idle'), 2000);
+                    return;
+                }
+
+                submitState = 'idle';
+            };
+        };
+        return enhance(formEl, submit);
+    };
 </script>
 
 <main class="flex flex-col min-h-screen">
@@ -32,7 +64,7 @@
                         </div>
                     {/if}
 
-					<form method="POST" use:enhance class="flex flex-col gap-6">
+					<form method="POST" use:useEnhanceOnboarding class="flex flex-col gap-6">
                     <div class="rounded-lg border bg-base-200 p-4 space-y-2">
                         <p class="text-sm">We will store your Discord username and email to personalize your ERMC account.</p>
                         <div class="grid gap-4 md:grid-cols-2">
@@ -74,8 +106,18 @@
                         </div>
                         <div>
                             <label class="label" for="subdivision"><span class="label-text">Subdivision</span></label>
-                            <input name="subdivision" id="subdivision" type="text" placeholder="e.g. Khaleej vACC" class="input input-bordered w-full" required />
+                            <select name="subdivision" id="subdivision" class="select select-bordered w-full" required>
+                                <option value="Khaleej vACC" selected>Khaleej vACC</option>
+                            </select>
+                            <div class="mt-2 text-xs text-base-content/70">
+                                Want to integrate ERMC for your subdivision? <a href="/contact" class="link link-primary">Get in touch now.</a>
+                            </div>
                         </div>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label" for="access_key"><span class="label-text">Access Key</span></label>
+                        <input name="access_key" id="access_key" type="password" class="input input-bordered w-full" required />
                     </div>
 
                     <div class="form-control">
@@ -101,9 +143,21 @@
 							</label>
 						</div>
 
-						<button type="submit" class="btn btn-primary btn-lg mt-4 w-full">
-							<Check size={24} /> Complete Registration
-						</button>
+						<button
+                            type="submit"
+                            class="btn {submitState === 'success' ? 'btn-success' : submitState === 'error' ? 'btn-error' : 'btn-primary'} btn-lg mt-4 w-full"
+                            disabled={submitState === 'loading' || submitState === 'success'}
+                        >
+                            {#if submitState === 'loading'}
+                                <LoaderCircle size={24} class="animate-spin" />
+                            {:else if submitState === 'success'}
+                                <Check size={24} />
+                            {:else if submitState === 'error'}
+                                <X size={24} />
+                            {:else}
+                                <Check size={24} /> Complete Registration
+                            {/if}
+                        </button>
 					</form>
 				</div>
 			</div>

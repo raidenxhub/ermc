@@ -1,34 +1,42 @@
 <script lang="ts">
+    import { browser } from '$app/environment';
     import { enhance } from '$app/forms';
     import { Sparkles, Send, Mail, Check, X, LoaderCircle } from 'lucide-svelte';
     import bgImage from '$lib/assets/images/bg.png?enhanced';
     import { toast } from 'svelte-sonner';
 
+    export let form: { success?: boolean; error?: string } | null = null;
+
     let selectedSubject = '';
     let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
+    type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
 
-    const enhanceContact = enhance(() => {
-        submitState = 'loading';
-        return async ({ result, update }) => {
-            if (result.type === 'success') {
-                submitState = 'success';
-                toast.success('Thank you for reaching out, we will be in touch soon.');
-                selectedSubject = '';
-                await update({ reset: true });
+    const useEnhanceContact = (formEl: HTMLFormElement) => {
+        if (!browser) return;
+        const submit: SubmitFunction = () => {
+            submitState = 'loading';
+            return async ({ result, update }) => {
+                if (result.type === 'success') {
+                    submitState = 'success';
+                    toast.success('Thank you for reaching out, we will be in touch soon.');
+                    selectedSubject = '';
+                    await update({ reset: true });
+                    setTimeout(() => (submitState = 'idle'), 2000);
+                    return;
+                }
+
+                await update();
+                submitState = 'error';
+                const message =
+                    result.type === 'failure'
+                        ? ((result.data as { error?: string })?.error || 'Failed to send message. Please try again later.')
+                        : 'Failed to send message. Please try again later.';
+                toast.error(message);
                 setTimeout(() => (submitState = 'idle'), 2000);
-                return;
-            }
-
-            await update();
-            submitState = 'error';
-            const message =
-                result.type === 'failure'
-                    ? ((result.data as { error?: string })?.error || 'Failed to send message. Please try again later.')
-                    : 'Failed to send message. Please try again later.';
-            toast.error(message);
-            setTimeout(() => (submitState = 'idle'), 2000);
+            };
         };
-    });
+        return enhance(formEl, submit);
+    };
 </script>
 
 <main class="flex flex-col">
@@ -55,7 +63,18 @@
 
                 <div class="card w-full max-w-lg bg-base-100/90 backdrop-blur shadow-xl">
                     <div class="card-body">
-                        <form method="POST" use:enhanceContact class="space-y-4">
+                        {#if form?.success}
+                            <div role="alert" class="alert alert-success mb-4">
+                                <Check size={18} />
+                                <span>We&apos;ll get back to you soon.</span>
+                            </div>
+                        {:else if form?.error}
+                            <div role="alert" class="alert alert-error mb-4">
+                                <X size={18} />
+                                <span>{form.error}</span>
+                            </div>
+                        {/if}
+                        <form method="POST" use:useEnhanceContact class="space-y-4">
                             <div class="form-control">
                                 <label class="label" for="name">
                                     <span class="label-text">Name</span>
@@ -129,13 +148,13 @@
                                     disabled={submitState === 'loading' || submitState === 'success'}
                                 >
                                     {#if submitState === 'loading'}
-                                        <LoaderCircle size={18} class="mr-2 animate-spin" /> Sending...
+                                        <LoaderCircle size={18} class="animate-spin" />
                                     {:else if submitState === 'success'}
-                                        <Check size={18} class="mr-2" /> Sent
+                                        <Check size={18} />
                                     {:else if submitState === 'error'}
-                                        <X size={18} class="mr-2" /> Failed
+                                        <X size={18} />
                                     {:else}
-                                        <Send size={18} class="mr-2" /> Send Message
+                                        <Send size={18} /> Send Message
                                     {/if}
                                 </button>
                             </div>

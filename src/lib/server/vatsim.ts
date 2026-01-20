@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { randomUUID } from 'crypto';
 
 interface VatsimEvent {
 	id: number;
@@ -32,12 +33,12 @@ export async function fetchVatsimEvents() {
 		const primaryRes = await fetch(primaryUrl, { headers: { accept: 'application/json' } });
 		if (primaryRes.ok) {
 			const json = await primaryRes.json();
-			events = Array.isArray(json) ? json : (json?.data || []);
+			events = Array.isArray(json) ? json : json?.data || [];
 		} else {
 			const fallbackRes = await fetch(VATSIM_FALLBACK_EVENTS_API);
 			if (!fallbackRes.ok) throw new Error(`Failed to fetch events: ${fallbackRes.statusText}`);
 			const json = await fallbackRes.json();
-			events = Array.isArray(json) ? json : (json?.data || []);
+			events = Array.isArray(json) ? json : json?.data || [];
 		}
 
 		// Filter for events that have at least one airport in our relevant list
@@ -51,11 +52,15 @@ export async function fetchVatsimEvents() {
 				: [];
 
 			const airportMatch = airportCodes.some((icao) => RELEVANT_AIRPORTS.includes(icao));
-            
-            // Check routes
-			const routeMatch = event.routes && Array.isArray(event.routes) && event.routes.some(
-				(r) => RELEVANT_AIRPORTS.includes((r.departure || '').toUpperCase()) || RELEVANT_AIRPORTS.includes((r.arrival || '').toUpperCase())
-			);
+
+			// Check routes
+			const routeMatch =
+				event.routes &&
+				Array.isArray(event.routes) &&
+				event.routes.some(
+					(r) =>
+						RELEVANT_AIRPORTS.includes((r.departure || '').toUpperCase()) || RELEVANT_AIRPORTS.includes((r.arrival || '').toUpperCase())
+				);
 
 			const name = (event.name || '').toLowerCase();
 			const desc = (event.description || '').toLowerCase();
@@ -71,119 +76,167 @@ export async function fetchVatsimEvents() {
 	}
 }
 
-export async function generateRosterSlots(supabase: SupabaseClient, eventRecord: any) {
-    // Check if slots already exist
-    const { count } = await supabase.from('roster_entries').select('*', { count: 'exact', head: true }).eq('event_id', eventRecord.id);
-    
-    // Only generate if no slots exist and we have airports
-    if (count === 0 && eventRecord.airports && eventRecord.airports.length > 0) {
-        const airports = eventRecord.airports.split(',').filter((a: string) => a.length > 0);
-        const positions = ['DEL', 'GND', 'TWR', 'APP', 'CTR', 'STBY'];
-        const entriesToInsert = [];
+export async function generateRosterSlots(
+	supabase: SupabaseClient,
+	eventRecord: { id: string; airports?: string | null; start_time: string; end_time: string }
+) {
+	if (!eventRecord.airports) return;
 
-        const startTime = new Date(eventRecord.start_time);
-        const endTime = new Date(eventRecord.end_time);
-        const durationMs = endTime.getTime() - startTime.getTime();
-        const durationHours = durationMs / (1000 * 60 * 60);
+	const managedAirports = new Set(['OBBI', 'OKKK']);
+	const airports = eventRecord.airports
+		.split(',')
+		.map((a) => a.trim().toUpperCase())
+		.filter((a) => a.length > 0)
+		.filter((a) => managedAirports.has(a));
 
-        // Determine slot duration in milliseconds
-        // 3+ hours -> 90 mins (1.5h)
-        // Under 2 hours (and default) -> 60 mins (1h)
-        let slotDurationMs = 60 * 60 * 1000; 
-        if (durationHours >= 3) {
-            slotDurationMs = 90 * 60 * 1000;
-        }
+	if (airports.length === 0) return;
 
-        for (const airport of airports) {
-            for (const pos of positions) {
-                let currentSlotStart = new Date(startTime);
-                
-                while (currentSlotStart.getTime() < endTime.getTime()) {
-                    let currentSlotEnd = new Date(currentSlotStart.getTime() + slotDurationMs);
-                    
-                    // Cap the last slot at event end time
-                    if (currentSlotEnd.getTime() > endTime.getTime()) {
-                        currentSlotEnd = new Date(endTime);
-                    }
-                    
-                    // Don't create tiny sliver slots (e.g. < 15 mins) unless it's the only slot
-                    if (currentSlotEnd.getTime() - currentSlotStart.getTime() < 15 * 60 * 1000 && currentSlotStart.getTime() !== startTime.getTime()) {
-                         break;
-                    }
+	const { data: existingRows } = await supabase
+		.from('roster_entries')
+		.select('airport, position, start_time, end_time')
+		.eq('event_id', eventRecord.id)
+		.in('airport', airports);
 
-                    // Use format like OBBI_TWR or OBBI_STBY
-                    const positionName = `${airport}_${pos}`;
+	const existing = new Set(
+		(existingRows || []).map((r) => `${r.airport}|${r.position}|${new Date(r.start_time).toISOString()}|${new Date(r.end_time).toISOString()}`)
+	);
 
-                    entriesToInsert.push({
-                        event_id: eventRecord.id,
-                        airport: airport,
-                        position: positionName,
-                        start_time: currentSlotStart.toISOString(),
-                        end_time: currentSlotEnd.toISOString(),
-                        status: 'open'
-                    });
+	const positions = ['DEL', 'GND', 'TWR', 'APP', 'CTR', 'STBY'];
+	const entriesToInsert = [];
 
-                    currentSlotStart = currentSlotEnd;
-                }
-            }
-        }
+	const startTime = new Date(eventRecord.start_time);
+	const endTime = new Date(eventRecord.end_time);
+	const durationMs = endTime.getTime() - startTime.getTime();
+	const durationHours = durationMs / (1000 * 60 * 60);
 
-        if (entriesToInsert.length > 0) {
-            const { error } = await supabase.from('roster_entries').insert(entriesToInsert);
-            if (error) console.error('Error generating slots:', error);
-        }
-    }
+	// Determine slot duration in milliseconds
+	// 3+ hours -> 90 mins (1.5h)
+	// Under 2 hours (and default) -> 60 mins (1h)
+	let slotDurationMs = 60 * 60 * 1000;
+	if (durationHours >= 3) {
+		slotDurationMs = 90 * 60 * 1000;
+	}
+
+	for (const airport of airports) {
+		for (const pos of positions) {
+			let currentSlotStart = new Date(startTime);
+
+			while (currentSlotStart.getTime() < endTime.getTime()) {
+				let currentSlotEnd = new Date(currentSlotStart.getTime() + slotDurationMs);
+
+				// Cap the last slot at event end time
+				if (currentSlotEnd.getTime() > endTime.getTime()) {
+					currentSlotEnd = new Date(endTime);
+				}
+
+				// Don't create tiny sliver slots (e.g. < 15 mins) unless it's the only slot
+				if (currentSlotEnd.getTime() - currentSlotStart.getTime() < 15 * 60 * 1000 && currentSlotStart.getTime() !== startTime.getTime()) {
+					break;
+				}
+
+				// Use format like OBBI_TWR or OBBI_STBY
+				const positionName = `${airport}_${pos}`;
+
+				const startIso = currentSlotStart.toISOString();
+				const endIso = currentSlotEnd.toISOString();
+				const key = `${airport}|${positionName}|${startIso}|${endIso}`;
+				if (!existing.has(key)) {
+					entriesToInsert.push({
+						event_id: eventRecord.id,
+						airport,
+						position: positionName,
+						start_time: startIso,
+						end_time: endIso,
+						status: 'open'
+					});
+				}
+
+				currentSlotStart = currentSlotEnd;
+			}
+		}
+	}
+
+	if (entriesToInsert.length > 0) {
+		const { error } = await supabase.from('roster_entries').insert(entriesToInsert);
+		if (error) console.error('Error generating slots:', error);
+	}
 }
 
 export async function syncEvents(supabase: SupabaseClient) {
-	const events = await fetchVatsimEvents();
+	const toUtcIsoSafe = (value: unknown) => {
+		if (typeof value !== 'string') return null;
+		const d = new Date(value);
+		if (Number.isNaN(d.getTime())) return null;
+		return d.toISOString();
+	};
 
-	for (const event of events) {
-        // Infer airports if API list is empty but title suggests a specific location
-        let inferredAirports: string[] = [];
-        if (event.airports && Array.isArray(event.airports)) {
-            inferredAirports = event.airports.map((a) => a.icao);
-        }
-        
-        if (inferredAirports.length === 0) {
-             const title = event.name.toLowerCase();
-             const desc = event.description?.toLowerCase() || '';
-             
-             if (title.includes('bahrain') || desc.includes('bahrain')) inferredAirports.push('OBBI');
-             if (title.includes('kuwait') || desc.includes('kuwait')) inferredAirports.push('OKKK');
-             
-             // Deduplicate
-             inferredAirports = [...new Set(inferredAirports)];
-        }
+	try {
+		const events = await fetchVatsimEvents();
 
-		// Upsert event into database
-		const { data: eventRecord, error } = await supabase
-			.from('events')
-			.upsert(
-				{
+		for (const event of events) {
+			try {
+				const start_time = toUtcIsoSafe(event.start_time);
+				const end_time = toUtcIsoSafe(event.end_time);
+				if (!start_time || !end_time) continue;
+
+				const name = typeof event.name === 'string' ? event.name : '';
+				const description = typeof event.description === 'string' ? event.description : '';
+
+				let inferredAirports: string[] = [];
+				if (event.airports && Array.isArray(event.airports)) {
+					inferredAirports = (event.airports as Array<{ icao?: string }>).map((a) => (a?.icao || '').toUpperCase()).filter(Boolean);
+				}
+
+				if (inferredAirports.length === 0) {
+					const title = name.toLowerCase();
+					const desc = description.toLowerCase();
+
+					if (title.includes('bahrain') || desc.includes('bahrain')) inferredAirports.push('OBBI');
+					if (title.includes('kuwait') || desc.includes('kuwait')) inferredAirports.push('OKKK');
+
+					inferredAirports = [...new Set(inferredAirports)];
+				}
+
+				const payload = {
 					vatsim_id: event.id,
-					name: event.name,
-					description: event.description,
-					banner: event.banner,
-					link: event.link,
-					type: event.type,
-					start_time: new Date(event.start_time).toISOString(),
-					end_time: new Date(event.end_time).toISOString(),
+					name: name || null,
+					description: description || null,
+					banner: event.banner || null,
+					link: event.link || null,
+					type: event.type || null,
+					start_time,
+					end_time,
 					airports: inferredAirports.join(','),
-					routes: JSON.stringify(event.routes),
+					routes: event.routes ? JSON.stringify(event.routes) : null,
 					status: 'published'
-				},
-				{ onConflict: 'vatsim_id' }
-			)
-			.select()
-			.single();
+				};
 
-		if (error || !eventRecord) {
-			console.error('Error syncing event:', error);
-			continue;
+				const { data: existing, error: existingError } = await supabase.from('events').select('id').eq('vatsim_id', event.id).maybeSingle();
+
+				if (existingError) {
+					console.error('Error checking existing event:', existingError);
+					continue;
+				}
+
+				const { data: eventRecord, error } = existing?.id
+					? await supabase.from('events').update(payload).eq('id', existing.id).select().single()
+					: await supabase
+							.from('events')
+							.insert({ id: randomUUID(), ...payload })
+							.select()
+							.single();
+
+				if (error || !eventRecord) {
+					console.error('Error syncing event:', error);
+					continue;
+				}
+
+				await generateRosterSlots(supabase, eventRecord);
+			} catch (e) {
+				console.error('Error syncing individual event:', e);
+			}
 		}
-
-		// Generate roster slots
-        await generateRosterSlots(supabase, eventRecord);
+	} catch (e) {
+		console.error('Error syncing events:', e);
 	}
 }

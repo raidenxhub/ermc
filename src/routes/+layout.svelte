@@ -4,6 +4,7 @@
   import { Toaster } from 'svelte-sonner';
   import Navbar from '$lib/components/Navbar.svelte';
   import Footer from '$lib/components/Footer.svelte';
+  import Toast from '$lib/components/Toast.svelte';
   import CookieConsent from '$lib/components/CookieConsent.svelte';
   import { navigating, page } from '$app/stores';
 
@@ -40,15 +41,17 @@
 <div class="flex min-h-screen flex-col">
   <Navbar {user} />
 
-  <main class="flex-1 relative">
-    {#if $navigating}
-      <div class="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-        <span class="loading loading-spinner loading-lg text-primary"></span>
-      </div>
-    {/if}
+  {#if $navigating}
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+      <span class="loading loading-spinner loading-lg text-primary"></span>
+    </div>
+  {/if}
+
+  <main class="flex-1 min-h-dvh">
     <slot />
   </main>
 
   <Footer />
+  <Toast />
   <CookieConsent />
 </div>
