@@ -32,11 +32,14 @@ export const load: LayoutServerLoad = async ({ locals: { supabase, user } }) => 
     // Fetch all events (manual + vatsim) from DB
     let events = [];
     try {
+        // Fetch events that end in the future OR ended less than 30 minutes ago
+        const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+        
         const { data, error } = await supabase
             .from('events')
             .select('*')
             .order('start_time', { ascending: true })
-            .gte('end_time', new Date().toISOString());
+            .gte('end_time', thirtyMinutesAgo);
         
         if (!error && data) {
             events = data;

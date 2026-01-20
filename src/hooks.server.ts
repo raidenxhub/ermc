@@ -7,9 +7,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 		cookies: {
 			getAll: () => event.cookies.getAll(),
 			setAll: (cookiesToSet) => {
-				cookiesToSet.forEach(({ name, value, options }: { name: string; value: string; options: any }) => {
-					event.cookies.set(name, value, { ...options, path: '/' });
-				});
+				try {
+					cookiesToSet.forEach(({ name, value, options }: { name: string; value: string; options: any }) => {
+						event.cookies.set(name, value, { ...options, path: '/' });
+					});
+				} catch {
+					// safe to ignore
+				}
 			}
 		}
 	});

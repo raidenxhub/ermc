@@ -1,11 +1,20 @@
-<script lang="ts">
     import type { PageData } from './$types';
-    import { format } from 'date-fns';
-    import { CalendarRange, MapPin } from 'lucide-svelte';
+    import { format, formatDistanceToNow } from 'date-fns';
+    import { CalendarRange, MapPin, Clock } from 'lucide-svelte';
     
     export let data: PageData;
     // Assuming data.events is passed from +page.server.ts
     const events = data.events || [];
+
+    function getClosingStatus(endTime: string) {
+        const end = new Date(endTime).getTime();
+        const now = Date.now();
+        const diff = end - now;
+        
+        if (diff < 0) return 'Ended';
+        if (diff < 30 * 60 * 1000) return `Closing in ${Math.ceil(diff / 60000)}m`;
+        return null;
+    }
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -27,6 +36,7 @@
     {:else}
         <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {#each events as event}
+                {@const closingStatus = getClosingStatus(event.end_time)}
                 <div class="group relative flex flex-col rounded-xl border bg-card text-card-foreground shadow transition-all hover:shadow-md hover:border-primary/50">
                     {#if event.banner}
                         <div class="aspect-video w-full overflow-hidden rounded-t-xl bg-muted relative">
@@ -35,10 +45,20 @@
                             <div class="absolute bottom-4 left-4 right-4">
                                 <h3 class="font-bold text-white text-lg leading-tight">{event.name}</h3>
                             </div>
+                            {#if closingStatus}
+                                <div class="absolute top-2 right-2 badge badge-warning gap-1 font-bold shadow-md">
+                                    <Clock size={12} /> {closingStatus}
+                                </div>
+                            {/if}
                         </div>
                     {:else}
-                        <div class="p-6 pb-2">
+                        <div class="p-6 pb-2 relative">
                              <h3 class="font-bold text-xl leading-tight">{event.name}</h3>
+                             {#if closingStatus}
+                                <div class="absolute top-4 right-4 badge badge-warning gap-1 font-bold">
+                                    <Clock size={12} /> {closingStatus}
+                                </div>
+                            {/if}
                         </div>
                     {/if}
 

@@ -10,9 +10,18 @@
 <div class="space-y-6 p-6 pb-16">
     <div class="space-y-0.5">
         <h2 class="text-2xl font-bold tracking-tight">Dashboard</h2>
-        <p class="text-muted-foreground">
-            Welcome back, {user.name || 'User'} ({user.rating_short || 'Guest'}).
-        </p>
+        <div class="flex items-center gap-2">
+            <p class="text-muted-foreground">
+                Welcome back, {user.name || 'User'}
+            </p>
+            {#if user.role === 'staff' || user.role === 'admin' || user.role === 'coordinator'}
+                <span class="badge badge-secondary font-bold text-xs">
+                    {user.position ? user.position.toUpperCase() : 'STAFF/COORDINATOR'}
+                </span>
+            {:else}
+                <span class="badge badge-outline font-bold text-xs">CONTROLLER</span>
+            {/if}
+        </div>
     </div>
 
     <!-- Main Action Buttons -->
