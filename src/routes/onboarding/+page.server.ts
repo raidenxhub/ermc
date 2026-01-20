@@ -5,6 +5,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) {
 		throw redirect(303, '/auth/login');
 	}
+	if (!supabase) throw redirect(303, '/?error=Server%20configuration%20error');
 
 	const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
 
@@ -20,6 +21,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 export const actions: Actions = {
 	default: async ({ request, locals: { supabase, user } }) => {
 		if (!user) return fail(401, { message: 'Unauthorized' });
+		if (!supabase) return fail(500, { message: 'Server configuration error.' });
 
 		const formData = await request.formData();
 		const fullName = (formData.get('full_name') as string) || '';

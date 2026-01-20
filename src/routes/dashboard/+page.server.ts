@@ -5,6 +5,7 @@ import { syncEvents } from '$lib/server/vatsim';
 
 export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) throw redirect(303, '/auth/login');
+	if (!supabase) throw redirect(303, '/?error=Server%20configuration%20error');
 
 	// Sync VATSIM Events (Fire and forget, or await if critical)
 	// We verify if we need to sync to avoid spamming.
@@ -13,7 +14,10 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	await syncEvents(supabase);
 
 	// Fetch user profile
-	const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+	const { data: profile, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+	if (profileError || !profile) {
+		throw redirect(303, '/onboarding');
+	}
 
 	// Fetch roster entries for user
 	const { data: rosterEntries } = await supabase
@@ -62,6 +66,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 export const actions: Actions = {
 	updateProfile: async ({ request, locals: { supabase, user } }) => {
 		if (!user) return fail(401, { message: 'Unauthorized' });
+		if (!supabase) return fail(500, { message: 'Server configuration error.' });
 
 		const data = await request.formData();
 		const cid = data.get('cid') as string;

@@ -1,12 +1,60 @@
 <script lang="ts">
     import { enhance } from '$app/forms';
-    import { Trash2, AlertTriangle, Save } from 'lucide-svelte';
+    import { goto } from '$app/navigation';
+    import { Trash2, AlertTriangle, Save, Check, X, LoaderCircle } from 'lucide-svelte';
     import { toast } from 'svelte-sonner';
 
     export let data;
     const { profile } = data;
     
     let confirmDelete = '';
+    let saveState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
+    let deleteState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
+
+    const enhanceSave = enhance(() => {
+        saveState = 'loading';
+        return async ({ result, update }) => {
+            if (result.type === 'success') {
+                saveState = 'success';
+                toast.success('Saved successfully.');
+                await update({ reset: false });
+                setTimeout(() => (saveState = 'idle'), 2000);
+                return;
+            }
+
+            await update({ reset: false });
+            saveState = 'error';
+            const message =
+                result.type === 'failure'
+                    ? ((result.data as { message?: string })?.message || 'Failed to save changes.')
+                    : 'Failed to save changes.';
+            toast.error(message);
+            setTimeout(() => (saveState = 'idle'), 2000);
+        };
+    });
+
+    const enhanceDelete = enhance(() => {
+        deleteState = 'loading';
+        return async ({ result, update }) => {
+            if (result.type === 'redirect') {
+                deleteState = 'success';
+                toast.success('Account deleted.');
+                const location = (result as { location: string }).location;
+                await new Promise((r) => setTimeout(r, 2000));
+                await goto(location);
+                return;
+            }
+
+            await update({ reset: false });
+            deleteState = 'error';
+            const message =
+                result.type === 'failure'
+                    ? ((result.data as { message?: string })?.message || 'Failed to delete account.')
+                    : 'Failed to delete account.';
+            toast.error(message);
+            setTimeout(() => (deleteState = 'idle'), 2000);
+        };
+    });
 </script>
 
 <div class="container mx-auto px-4 py-8 max-w-2xl">
@@ -33,14 +81,25 @@
                     </div>
                 </div>
 
-                <form method="POST" action="?/updateProfile" use:enhance>
+                <form method="POST" action="?/updateProfile" use:enhanceSave>
                     <div class="form-control w-full">
                         <label class="label"><span class="label-text">VATSIM CID</span></label>
                         <input type="text" name="cid" value={profile.cid || ''} class="input input-bordered w-full" />
                     </div>
                     <div class="card-actions justify-end mt-4">
-                        <button class="btn btn-primary">
-                            <Save size={18} /> Save Changes
+                        <button
+                            class="btn {saveState === 'success' ? 'btn-success' : saveState === 'error' ? 'btn-error' : 'btn-primary'}"
+                            disabled={saveState === 'loading' || saveState === 'success'}
+                        >
+                            {#if saveState === 'loading'}
+                                <LoaderCircle size={18} class="animate-spin" /> Saving...
+                            {:else if saveState === 'success'}
+                                <Check size={18} /> Saved
+                            {:else if saveState === 'error'}
+                                <X size={18} /> Failed
+                            {:else}
+                                <Save size={18} /> Save Changes
+                            {/if}
                         </button>
                     </div>
                 </form>
@@ -88,15 +147,26 @@
                     <span>Type <strong>DELETE</strong> to confirm account deletion.</span>
                 </div>
 
-                <form method="POST" action="?/deleteAccount" class="mt-4 space-y-4">
+                <form method="POST" action="?/deleteAccount" class="mt-4 space-y-4" use:enhanceDelete>
                     <input 
                         type="text" 
                         bind:value={confirmDelete} 
                         placeholder="Type DELETE to confirm" 
                         class="input input-bordered w-full border-error focus:outline-error" 
                     />
-                    <button class="btn btn-error w-full" disabled={confirmDelete !== 'DELETE'}>
-                        <Trash2 size={18} /> Delete Account
+                    <button
+                        class="btn {deleteState === 'success' ? 'btn-success' : 'btn-error'} w-full"
+                        disabled={confirmDelete !== 'DELETE' || deleteState === 'loading' || deleteState === 'success'}
+                    >
+                        {#if deleteState === 'loading'}
+                            <LoaderCircle size={18} class="animate-spin" /> Deleting...
+                        {:else if deleteState === 'success'}
+                            <Check size={18} /> Deleted
+                        {:else if deleteState === 'error'}
+                            <X size={18} /> Failed
+                        {:else}
+                            <Trash2 size={18} /> Delete Account
+                        {/if}
                     </button>
                 </form>
             </div>

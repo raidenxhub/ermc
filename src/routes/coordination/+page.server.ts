@@ -4,6 +4,7 @@ import { fetchOnlineControllers } from '$lib/server/vatsimData';
 
 export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) throw redirect(303, '/auth/login');
+	if (!supabase) throw redirect(303, '/?error=Server%20configuration%20error');
 
     try {
         const now = new Date().toISOString();
@@ -119,6 +120,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 export const actions: Actions = {
     sendMessage: async ({ request, locals: { supabase, user } }) => {
         if (!user) return fail(401, { message: 'Unauthorized' });
+		if (!supabase) return fail(500, { message: 'Server configuration error.' });
         const formData = await request.formData();
         const event_id = formData.get('event_id') as string;
         const content = formData.get('content') as string;
@@ -137,6 +139,7 @@ export const actions: Actions = {
 
     knock: async ({ request, locals: { supabase, user } }) => {
         if (!user) return fail(401, { message: 'Unauthorized' });
+		if (!supabase) return fail(500, { message: 'Server configuration error.' });
         const formData = await request.formData();
         const to_user_id = formData.get('to_user_id') as string;
         const event_id = formData.get('event_id') as string;

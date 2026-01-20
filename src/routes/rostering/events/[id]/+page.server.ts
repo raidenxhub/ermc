@@ -3,6 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals: { supabase, user } }) => {
 	if (!user) throw redirect(303, '/auth/login');
+	if (!supabase) throw redirect(303, '/?error=Server%20configuration%20error');
 
 	const { data: event } = await supabase.from('events').select('*').eq('id', params.id).single();
 	if (!event) throw redirect(303, '/');
@@ -32,6 +33,7 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, user } 
 export const actions: Actions = {
     add_slot: async ({ request, locals: { supabase, user } }) => {
         if (!user) return fail(401, { message: 'Unauthorized' });
+		if (!supabase) return fail(500, { message: 'Server configuration error.' });
         
         // Permission check
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
@@ -80,6 +82,7 @@ export const actions: Actions = {
 
 	claim_primary: async ({ request, locals: { supabase, user } }) => {
 		if (!user) return fail(401, { message: 'Unauthorized' });
+		if (!supabase) return fail(500, { message: 'Server configuration error.' });
 		const form = await request.formData();
 		const roster_entry_id = form.get('roster_entry_id') as string;
 		if (!roster_entry_id) return fail(400, { message: 'Missing roster_entry_id' });
@@ -107,6 +110,7 @@ export const actions: Actions = {
 
 	claim_standby: async ({ request, locals: { supabase, user } }) => {
 		if (!user) return fail(401, { message: 'Unauthorized' });
+		if (!supabase) return fail(500, { message: 'Server configuration error.' });
 		const form = await request.formData();
 		const roster_entry_id = form.get('roster_entry_id') as string;
 		if (!roster_entry_id) return fail(400, { message: 'Missing roster_entry_id' });
@@ -121,6 +125,7 @@ export const actions: Actions = {
 
 	cancel_claim: async ({ request, locals: { supabase, user } }) => {
 		if (!user) return fail(401, { message: 'Unauthorized' });
+		if (!supabase) return fail(500, { message: 'Server configuration error.' });
 		const form = await request.formData();
 		const roster_entry_id = form.get('roster_entry_id') as string;
 		if (!roster_entry_id) return fail(400, { message: 'Missing roster_entry_id' });
@@ -152,6 +157,7 @@ export const actions: Actions = {
 
 	knock: async ({ request, locals: { supabase, user } }) => {
 		if (!user) return fail(401, { message: 'Unauthorized' });
+		if (!supabase) return fail(500, { message: 'Server configuration error.' });
 		const form = await request.formData();
 		const roster_entry_id = form.get('roster_entry_id') as string;
 		const to_user_id = form.get('to_user_id') as string;

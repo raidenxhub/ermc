@@ -6,8 +6,10 @@ import { env as privateEnv } from '$env/dynamic/private';
 
 export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) throw redirect(303, '/auth/login');
+	if (!supabase) throw redirect(303, '/?error=Server%20configuration%20error');
 
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+    const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+    if (error || !profile) throw redirect(303, '/onboarding');
 
 	return {
         profile
@@ -17,6 +19,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 export const actions: Actions = {
     deleteAccount: async ({ locals: { supabase, user } }) => {
         if (!user) return fail(401, { message: 'Unauthorized' });
+		if (!supabase) return fail(500, { message: 'Server configuration error' });
 
         const serviceRole = privateEnv.SUPABASE_SECRET_KEY;
         if (!serviceRole) {
@@ -50,6 +53,7 @@ export const actions: Actions = {
     
     updateProfile: async ({ request, locals: { supabase, user } }) => {
         if (!user) return fail(401, { message: 'Unauthorized' });
+		if (!supabase) return fail(500, { message: 'Server configuration error' });
         
         const formData = await request.formData();
         const cid = formData.get('cid') as string;

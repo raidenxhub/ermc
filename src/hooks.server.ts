@@ -3,6 +3,16 @@ import { type Handle, redirect } from '@sveltejs/kit';
 import { env } from '$env/dynamic/public';
 
 export const handle: Handle = async ({ event, resolve }) => {
+	if (!env.PUBLIC_SUPABASE_URL || !env.PUBLIC_SUPABASE_ANON_KEY) {
+		event.locals.supabase = null;
+		event.locals.user = null;
+		return resolve(event, {
+			filterSerializedResponseHeaders(name) {
+				return name === 'content-range' || name === 'x-supabase-api-version';
+			}
+		});
+	}
+
 	try {
 		event.locals.supabase = createServerClient(env.PUBLIC_SUPABASE_URL!, env.PUBLIC_SUPABASE_ANON_KEY!, {
 			cookies: {
@@ -20,7 +30,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 		});
 	} catch (error) {
 		console.error('Failed to create Supabase client:', error);
-		// Return early to prevent further errors
+		event.locals.supabase = null;
+		event.locals.user = null;
 		return resolve(event, {
 			filterSerializedResponseHeaders(name) {
 				return name === 'content-range' || name === 'x-supabase-api-version';
@@ -35,7 +46,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	try {
 		const {
 			data: { user }
-		} = await event.locals.supabase.auth.getUser();
+		} = await event.locals.supabase!.auth.getUser();
 
 		event.locals.user = user;
 	} catch (error) {
@@ -59,7 +70,7 @@ export const handle: Handle = async ({ event, resolve }) => {
                 // Check if profile exists
                 // We don't check for specific fields here anymore to prevent loops if data is partial
                 // Only redirect if NO profile exists at all
-                const { data: profile, error } = await event.locals.supabase
+                const { data: profile, error } = await event.locals.supabase!
                     .from('profiles')
                     .select('id')
                     .eq('id', event.locals.user.id)

@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 	const code = url.searchParams.get('code');
 	const next = url.searchParams.get('next') ?? '/dashboard';
+	if (!supabase) throw redirect(303, '/?error=Server%20configuration%20error');
 
 	if (code) {
 		const { error } = await supabase.auth.exchangeCodeForSession(code);

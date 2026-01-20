@@ -7,6 +7,7 @@ import { generateRosterSlots } from '$lib/server/vatsim';
 
 export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) throw redirect(303, '/auth/login');
+	if (!supabase) throw redirect(303, '/?error=Server%20configuration%20error');
 
 	const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
 	if (!profile || (profile.role !== 'staff' && profile.role !== 'admin' && profile.role !== 'coordinator')) {
@@ -18,6 +19,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 export const actions: Actions = {
 	default: async ({ request, locals: { supabase, user } }) => {
 		if (!user) return fail(401, { message: 'Unauthorized' });
+		if (!supabase) return fail(500, { message: 'Server configuration error.' });
 
 		const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
 		if (!profile || (profile.role !== 'staff' && profile.role !== 'admin' && profile.role !== 'coordinator')) {
