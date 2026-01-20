@@ -1,34 +1,38 @@
-import { createBrowserClient } from '@supabase/ssr';
-import { env } from '$env/dynamic/public';
-import type { LayoutLoad } from './$types';
+import { createBrowserClient } from '@supabase/ssr'
+import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public'
+import type { LayoutLoad } from './$types'
 
 export const load: LayoutLoad = async ({ depends, fetch }) => {
-	/**
-	 * Declare a dependency so the layout can be invalidated, for example, on
-	 * session refresh.
-	 */
-	depends('supabase:auth');
+  /**
+   * Declare a dependency so the layout can be invalidated, for example, on
+   * session refresh.
+   */
+  depends('supabase:auth')
 
-	const supabase = createBrowserClient(env.PUBLIC_SUPABASE_URL!, env.PUBLIC_SUPABASE_ANON_KEY!, {
-		global: { fetch }
-	});
+  if (!PUBLIC_SUPABASE_URL || !PUBLIC_SUPABASE_ANON_KEY) {
+    return { supabase: null, session: null, user: null }
+  }
 
-	/**
-	 * It's fine to use `getSession` here, because on the client, `getSession` is
-	 * safe, and on the server, it reads `session` from the `LayoutData`, which
-	 * safely checked the session using `safeGetSession`.
-	 */
-	const {
-		data: { session }
-	} = await supabase.auth.getSession();
+  const supabase = createBrowserClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
+    global: { fetch }
+  })
 
-	const {
-		data: { user }
-	} = await supabase.auth.getUser();
+  /**
+   * It's fine to use `getSession` here, because on the client, `getSession` is
+   * safe, and on the server, it reads `session` from the `LayoutData`, which
+   * safely checked the session using `safeGetSession`.
+   */
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
-	return {
-		supabase,
-		session,
-		user
-	};
-};
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  return {
+    supabase,
+    session,
+    user,
+  }
+}
