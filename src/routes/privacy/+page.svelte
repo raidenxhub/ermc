@@ -44,12 +44,12 @@
         <h2>5. Data Retention</h2>
         <p>
             We retain your personal data only for as long as necessary to fulfill the purposes outlined in this policy.
-            <ul>
-                <li><strong>Profile Data:</strong> Retained as long as your account is active. If you request deletion, we will remove your personal identifiers from our active database within 30 days.</li>
-                <li><strong>Event Data:</strong> Historical booking data may be archived for statistical purposes but is generally anonymized after 12 months. This helps us plan future events and analyze network capacity.</li>
-                <li><strong>Logs:</strong> Server logs and security audit trails are retained for 30 days for security auditing and troubleshooting purposes, after which they are securely deleted.</li>
-            </ul>
         </p>
+        <ul>
+            <li><strong>Profile Data:</strong> Retained as long as your account is active. If you request deletion, we will remove your personal identifiers from our active database within 30 days.</li>
+            <li><strong>Event Data:</strong> Historical booking data may be archived for statistical purposes but is generally anonymized after 12 months. This helps us plan future events and analyze network capacity.</li>
+            <li><strong>Logs:</strong> Server logs and security audit trails are retained for 30 days for security auditing and troubleshooting purposes, after which they are securely deleted.</li>
+        </ul>
 
         <h2>6. Data Sharing & Third Parties</h2>
         <p>
