@@ -4,8 +4,14 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) throw redirect(303, '/auth/login');
 
-    // TODO: Implement logic to check for active events and user bookings
+    const { data: events } = await supabase
+        .from('events')
+        .select('*')
+        .order('start_time', { ascending: true })
+        .gte('end_time', new Date().toISOString());
+
 	return {
-        user
+        user,
+        events: events || []
     };
 };

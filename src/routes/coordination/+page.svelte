@@ -94,8 +94,8 @@
                 <div class="flex justify-center">
                     <Ban size={48} class="text-error" />
                 </div>
-                <h1 class="text-2xl font-bold">Access Denied</h1>
-                <p class="text-muted-foreground">{data.reason}</p>
+                <h1 class="text-2xl font-bold">Coordination Unavailable</h1>
+                <p class="text-muted-foreground">{data.reason || "You don't have an active event booking right now."}</p>
                 {#if data.booking}
                      <div class="bg-muted p-4 rounded-lg text-sm text-left">
                         <p class="font-semibold">Your Booking:</p>
@@ -104,7 +104,7 @@
                         <p class="mt-2 text-xs opacity-70">Make sure you are logged into VATSIM with a matching callsign.</p>
                      </div>
                 {/if}
-                <button class="btn btn-primary" on:click={() => window.location.reload()}>Check Again</button>
+                <a href="/rostering" class="btn btn-primary">Find an Event</a>
             </div>
         </div>
     {:else}
