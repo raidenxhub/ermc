@@ -12,7 +12,7 @@
   let { supabase, session, user } = data;
   $: ({ supabase, session, user } = data);
   $: canonicalUrl = $page.url.origin + $page.url.pathname;
-  $: ogImageUrl = $page.url.origin + '/logo.png';
+  $: ogImageUrl = $page.url.origin + '/image.png';
 
   onMount(() => {
     if (!supabase) return

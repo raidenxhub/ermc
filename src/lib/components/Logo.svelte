@@ -12,7 +12,7 @@
 			<span class="text-2xl font-bold text-primary">ERMC</span>
 		{:else}
 			<img
-				src="/logo.png"
+				src="/image.png"
 				{alt}
 				width={size}
 				height={size}
@@ -26,7 +26,7 @@
 		<span class="text-2xl font-bold text-primary">ERMC</span>
 	{:else}
 		<img
-			src="/logo.png"
+			src="/image.png"
 			{alt}
 			width={size}
 			height={size}
@@ -35,4 +35,3 @@
 		/>
 	{/if}
 {/if}
-

@@ -1,0 +1,22 @@
+{
+	"name": "ERMC",
+	"short_name": "ERMC",
+	"description": "Event Roster Control Management (ERMC) — rosters, events, coordination, and live network data for VATSIM vACCs.",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"background_color": "#0b1220",
+	"theme_color": "#003366",
+	"icons": [
+		{
+			"src": "/android-chrome-192x192.png",
+			"sizes": "192x192",
+			"type": "image/png"
+		},
+		{
+			"src": "/android-chrome-512x512.png",
+			"sizes": "512x512",
+			"type": "image/png"
+		}
+	]
+}
