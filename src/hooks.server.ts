@@ -41,19 +41,18 @@ export const handle: Handle = async ({ event, resolve }) => {
 		// Enforce Onboarding
 		if (event.locals.user) {
             try {
+                // Check if profile exists
+                // We don't check for specific fields here anymore to prevent loops if data is partial
+                // Only redirect if NO profile exists at all
                 const { data: profile, error } = await event.locals.supabase
                     .from('profiles')
-                    .select('name, email, cid, rating, subdivision')
+                    .select('id')
                     .eq('id', event.locals.user.id)
                     .single();
 
-                if (error) {
-                    console.error('Profile fetch error in hooks:', error);
-                    // If DB error, don't crash, just let them through or redirect to error page?
-                    // Safe bet: if we can't verify profile, maybe just let them load dashboard 
-                    // but they might see empty data. Better than 500.
-                } else if (!profile || !profile.name || !profile.email || !profile.cid || !profile.rating || !profile.subdivision) {
-                    throw redirect(303, '/onboarding');
+                if (error || !profile) {
+                    // Only redirect if no profile found
+                     throw redirect(303, '/onboarding');
                 }
             } catch (e) {
                 // If this throws (e.g. redirect), rethrow it.
