@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Radar, Info, Menu, LogOut, User, BarChart3, Settings } from 'lucide-svelte';
+    import { Radar, Info, Menu, LogOut, User, BarChart3, Settings, Send } from 'lucide-svelte';
     export let user: any = null;
 
     const onclick = (e: MouseEvent) => {
