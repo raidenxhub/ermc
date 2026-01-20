@@ -20,11 +20,7 @@ interface VatsimData {
 const VATSIM_DATA_URL = 'https://data.vatsim.net/v3/vatsim-data.json';
 const METAR_URL = 'https://metar.vatsim.net/metar.php?id=';
 
-const RELEVANT_PREFIXES = ['OB', 'OK'];
-const RELEVANT_AIRPORTS = [
-	'OBBI',
-	'OKKK' // Khaleej
-];
+const RELEVANT_AIRPORTS = ['OBBI', 'OKKK'];
 
 export async function fetchOnlineControllers() {
 	try {
@@ -40,7 +36,7 @@ export async function fetchOnlineControllers() {
 
 		// Filter controllers
 		const controllers = data.controllers.filter(
-			(c) => RELEVANT_PREFIXES.some((prefix) => c.callsign.startsWith(prefix)) && c.facility > 0 // Filter out observers if desired, though facility 0 is OBS
+			(c) => RELEVANT_AIRPORTS.some((icao) => c.callsign.startsWith(icao)) && c.facility > 0
 		);
 
 		// Map simplified data

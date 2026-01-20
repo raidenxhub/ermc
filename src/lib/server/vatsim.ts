@@ -2,69 +2,64 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface VatsimEvent {
 	id: number;
-	type: string;
-	name: string;
-	link: string;
-	organisers: Array<{
-		region: string;
-		division: string;
-		subdivision: string;
+	type?: string;
+	name?: string;
+	link?: string;
+	organisers?: Array<{
+		region?: string;
+		division?: string;
+		subdivision?: string;
 	}>;
-	airports: Array<{
-		icao: string;
-	}>;
-	routes: Array<{
-		departure: string;
-		arrival: string;
-		route: string;
-	}>;
-	start_time: string;
-	end_time: string;
-	short_description: string;
-	description: string;
-	banner: string;
+	airports?: Array<{ icao?: string }> | string[];
+	routes?: Array<{ departure?: string; arrival?: string; route?: string }>;
+	start_time?: string;
+	end_time?: string;
+	short_description?: string;
+	description?: string;
+	banner?: string;
 }
 
-const VATSIM_EVENTS_API = 'https://api.vatsim.net/v2/events';
-// Gulf / Khaleej / Middle East airports
-const RELEVANT_AIRPORTS = [
-	'OBBI', 'OKKK' // Bahrain, Kuwait
-];
+const VATSIM_MV_EVENTS_BY_DIVISION_API = 'https://my.vatsim.net/api/v2/events/view/division';
+const VATSIM_DIVISION_ID = 'VATMENA';
+const VATSIM_FALLBACK_EVENTS_API = 'https://api.vatsim.net/v2/events';
+const RELEVANT_AIRPORTS = ['OBBI', 'OKKK'];
 
 export async function fetchVatsimEvents() {
 	try {
-		const response = await fetch(VATSIM_EVENTS_API);
-		if (!response.ok) {
-			throw new Error(`Failed to fetch events: ${response.statusText}`);
-		}
+		const primaryUrl = `${VATSIM_MV_EVENTS_BY_DIVISION_API}/${encodeURIComponent(VATSIM_DIVISION_ID)}`;
+		let events: VatsimEvent[] = [];
 
-		const json = await response.json();
-        // The VATSIM API V2 structure can be { data: [...] } or just [...]
-        // Based on documentation, it should be { data: [...] } for v2/events/latest or similar,
-        // but v2/events might be paginated or different.
-        // Let's handle both cases safely.
-		const events: VatsimEvent[] = Array.isArray(json) ? json : (json.data || []);
+		const primaryRes = await fetch(primaryUrl, { headers: { accept: 'application/json' } });
+		if (primaryRes.ok) {
+			const json = await primaryRes.json();
+			events = Array.isArray(json) ? json : (json?.data || []);
+		} else {
+			const fallbackRes = await fetch(VATSIM_FALLBACK_EVENTS_API);
+			if (!fallbackRes.ok) throw new Error(`Failed to fetch events: ${fallbackRes.statusText}`);
+			const json = await fallbackRes.json();
+			events = Array.isArray(json) ? json : (json?.data || []);
+		}
 
 		// Filter for events that have at least one airport in our relevant list
 		// OR if the event description/title contains keywords like "Middle East", "Gulf", etc.
 		const relevantEvents = events.filter((event) => {
-            // Safety check for airports array
-            if (!event.airports || !Array.isArray(event.airports)) return false;
+			const airportCodes = Array.isArray(event.airports)
+				? (event.airports as Array<{ icao?: string } | string>)
+						.map((a) => (typeof a === 'string' ? a : a?.icao))
+						.filter(Boolean)
+						.map((s) => String(s).toUpperCase())
+				: [];
 
-			// Check airports
-			const airportMatch = event.airports.some((a) => RELEVANT_AIRPORTS.includes(a.icao.toUpperCase()));
+			const airportMatch = airportCodes.some((icao) => RELEVANT_AIRPORTS.includes(icao));
             
             // Check routes
 			const routeMatch = event.routes && Array.isArray(event.routes) && event.routes.some(
-				(r) => RELEVANT_AIRPORTS.includes(r.departure.toUpperCase()) || RELEVANT_AIRPORTS.includes(r.arrival.toUpperCase())
+				(r) => RELEVANT_AIRPORTS.includes((r.departure || '').toUpperCase()) || RELEVANT_AIRPORTS.includes((r.arrival || '').toUpperCase())
 			);
 
-            // Check title/desc keywords (backup) - Case Insensitive
-            const keywords = ['gulf', 'middle east', 'bahrain', 'kuwait', 'emirates', 'qatar', 'saudi', 'oman', 'iraq', 'jordan', 'lebanon', 'jeddah', 'riyadh', 'doha', 'muscat', 'dubai', 'abu dhabi'];
-            const textMatch = keywords.some(k => 
-                event.name.toLowerCase().includes(k) || 
-                (event.description && event.description.toLowerCase().includes(k))
-            );
+			const name = (event.name || '').toLowerCase();
+			const desc = (event.description || '').toLowerCase();
+			const textMatch = RELEVANT_AIRPORTS.some((icao) => name.includes(icao.toLowerCase()) || desc.includes(icao.toLowerCase()));
 
 			return airportMatch || routeMatch || textMatch;
 		});
