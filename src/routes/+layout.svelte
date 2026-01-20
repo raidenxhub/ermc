@@ -4,6 +4,7 @@
   import { Toaster } from 'svelte-sonner';
   import Navbar from '$lib/components/Navbar.svelte';
   import Footer from '$lib/components/Footer.svelte';
+  import CookieConsent from '$lib/components/CookieConsent.svelte';
   import { navigating } from '$app/stores';
 
   export let data;
@@ -39,4 +40,5 @@
   </main>
 
   <Footer />
+  <CookieConsent />
 </div>

@@ -93,7 +93,7 @@
 							<label class="label cursor-pointer items-start gap-4">
 								<input type="checkbox" name="terms" class="checkbox checkbox-primary mt-1" required />
 								<div class="flex flex-col">
-									<span class="label-text font-medium">I accept the Terms of Service, Privacy Policy, and Terms of Use.</span>
+									<span class="label-text font-medium">I accept the <a href="/terms-of-service" class="link link-primary" target="_blank">Terms of Service</a>, <a href="/privacy" class="link link-primary" target="_blank">Privacy Policy</a>, and <a href="/terms-of-use" class="link link-primary" target="_blank">Terms of Use</a>.</span>
 									<span class="label-text-alt mt-1 text-base-content/60">
 										By checking this box, you agree to our policies regarding data usage and community standards.
 									</span>
