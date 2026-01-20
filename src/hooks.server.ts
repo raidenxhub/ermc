@@ -3,30 +3,45 @@ import { type Handle, redirect } from '@sveltejs/kit';
 import { env } from '$env/dynamic/public';
 
 export const handle: Handle = async ({ event, resolve }) => {
-	event.locals.supabase = createServerClient(env.PUBLIC_SUPABASE_URL!, env.PUBLIC_SUPABASE_ANON_KEY!, {
-		cookies: {
-			getAll: () => event.cookies.getAll(),
-			setAll: (cookiesToSet) => {
-				try {
-					cookiesToSet.forEach(({ name, value, options }: { name: string; value: string; options: any }) => {
-						event.cookies.set(name, value, { ...options, path: '/' });
-					});
-				} catch {
-					// safe to ignore
+	try {
+		event.locals.supabase = createServerClient(env.PUBLIC_SUPABASE_URL!, env.PUBLIC_SUPABASE_ANON_KEY!, {
+			cookies: {
+				getAll: () => event.cookies.getAll(),
+				setAll: (cookiesToSet) => {
+					try {
+						cookiesToSet.forEach(({ name, value, options }: { name: string; value: string; options: Record<string, unknown> }) => {
+							event.cookies.set(name, value, { ...options, path: '/' });
+						});
+					} catch {
+						// safe to ignore
+					}
 				}
 			}
-		}
-	});
+		});
+	} catch (error) {
+		console.error('Failed to create Supabase client:', error);
+		// Return early to prevent further errors
+		return resolve(event, {
+			filterSerializedResponseHeaders(name) {
+				return name === 'content-range' || name === 'x-supabase-api-version';
+			}
+		});
+	}
 
 	/**
 	 * Unlike `supabase.auth.getSession()`, which allows insecure access tokens,
 	 * `supabase.auth.getUser()` validates the auth token on the server.
 	 */
-	const {
-		data: { user }
-	} = await event.locals.supabase.auth.getUser();
+	try {
+		const {
+			data: { user }
+		} = await event.locals.supabase.auth.getUser();
 
-	event.locals.user = user;
+		event.locals.user = user;
+	} catch (error) {
+		console.error('Auth getUser error:', error);
+		event.locals.user = null;
+	}
 
     // Fix 500 Error: Handle unhandled promise rejections or database errors globally if needed,
     // but the main issue is likely the auth check failing or the DB call in protected routes.
@@ -50,14 +65,20 @@ export const handle: Handle = async ({ event, resolve }) => {
                     .eq('id', event.locals.user.id)
                     .single();
 
-                if (error || !profile) {
+                if (error) {
+                    console.error('Profile check error:', error);
+                    // Don't redirect on database errors - let user proceed
+                    // This prevents 500 errors when DB is down
+                } else if (!profile) {
                     // Only redirect if no profile found
                      throw redirect(303, '/onboarding');
                 }
             } catch (e) {
                 // If this throws (e.g. redirect), rethrow it.
-                if ((e as any)?.status === 303) throw e;
+                if ((e as { status?: number })?.status === 303) throw e;
                 console.error('Unexpected error in hooks profile check:', e);
+                // Don't let the hook crash - continue to the page
+                // This prevents 500 errors when DB is down or profile check fails
             }
 		}
 	}
