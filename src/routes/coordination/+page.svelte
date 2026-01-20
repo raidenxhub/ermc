@@ -1,13 +1,19 @@
 <script lang="ts">
-    import { onMount, onDestroy } from 'svelte';
+    import { onMount } from 'svelte';
     import { enhance } from '$app/forms';
-    import { page } from '$app/stores';
+    import { goto, invalidateAll } from '$app/navigation';
     import { createClient } from '@supabase/supabase-js';
     import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
-    import { Send, Bell, User as UserIcon } from 'lucide-svelte';
+    import { Send, Bell, Ban, Check } from 'lucide-svelte';
     import { toast } from 'svelte-sonner';
 
     export let data;
+    let hadAccess = !!data.access;
+    $: if (hadAccess && !data.access) {
+        toast.error(data.reason || 'Coordination ended or you disconnected.');
+        void goto('/rostering');
+    }
+    $: hadAccess = !!data.access;
 
     // Supabase client for realtime
     const supabase = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY);
@@ -15,6 +21,7 @@
     let messageInput = '';
     let chatContainer: HTMLElement;
     let messages = data.messages || [];
+    let sendState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
 
     // Sound effect
     // We'll use a simple beep using AudioContext or a data URI if no file exists
@@ -87,7 +94,16 @@
     }
 </script>
 
+<svelte:head>
+    <title>Coordination</title>
+    <meta name="description" content="Live event chat, controller roster presence, and knock alerts." />
+</svelte:head>
+
 <div class="container mx-auto px-4 py-6 h-[calc(100vh-4rem)] flex flex-col">
+    <div class="mb-4 space-y-2">
+        <h1 class="text-3xl font-bold">Coordination</h1>
+        <p class="text-muted-foreground">Live event chat, controller roster presence, and knock alerts.</p>
+    </div>
     {#if !data.access}
         <div class="flex-1 flex items-center justify-center">
             <div class="max-w-md text-center space-y-4 p-8 border rounded-xl bg-card shadow-lg">
@@ -145,10 +161,21 @@
                         method="POST" 
                         action="?/sendMessage" 
                         use:enhance={() => {
-                            messageInput = '';
-                            return async ({ update }) => {
+                            sendState = 'loading';
+                            return async ({ result, update }) => {
+                                if (result.type === 'success') {
+                                    messageInput = '';
+                                    await update({ reset: false });
+                                    scrollToBottom();
+                                    sendState = 'success';
+                                    setTimeout(() => (sendState = 'idle'), 2000);
+                                    return;
+                                }
+
                                 await update({ reset: false });
-                                scrollToBottom();
+                                sendState = 'error';
+                                toast.error('Failed to send message.');
+                                setTimeout(() => (sendState = 'idle'), 2000);
                             };
                         }}
                         class="flex gap-2"
@@ -162,8 +189,17 @@
                             class="input input-bordered flex-1"
                             autocomplete="off"
                         />
-                        <button class="btn btn-primary btn-square">
-                            <Send size={18} />
+                        <button
+                            class="btn btn-square {sendState === 'success' ? 'btn-success' : sendState === 'error' ? 'btn-error' : 'btn-primary'}"
+                            disabled={sendState === 'loading' || sendState === 'success'}
+                        >
+                            {#if sendState === 'loading'}
+                                <span class="loading loading-spinner loading-sm"></span>
+                            {:else if sendState === 'success'}
+                                <Check size={18} />
+                            {:else}
+                                <Send size={18} />
+                            {/if}
                         </button>
                     </form>
                 </div>

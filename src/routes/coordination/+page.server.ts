@@ -44,15 +44,16 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
             return { user, access: false, reason: 'You do not have a booked slot for any currently active event.' };
         }
 
-        // 3. Fetch VATSIM Online Data
-        const onlineControllers = await fetchOnlineControllers();
-        
-        // 4. Verify User is Online
-        // Ensure onlineControllers is an array
-        const safeControllers = Array.isArray(onlineControllers) ? onlineControllers : [];
-        const myControllerData = safeControllers.find(c => c.cid == user.cid);
+        const slurperUrl = new URL('https://slurper.vatsim.net/users/info');
+        slurperUrl.searchParams.set('cid', String(user.cid));
+        const slurperRes = await fetch(slurperUrl.toString());
+        const slurperText = slurperRes.ok ? (await slurperRes.text()).trim() : '';
+        const slurperLine = slurperText ? slurperText.split(/\r?\n/)[0].trim() : '';
+        const slurperParts = slurperLine ? slurperLine.split(',') : [];
+        const slurperType = (slurperParts[2] || '').trim().toLowerCase();
+        const slurperCallsign = (slurperParts[1] || '').trim();
 
-        if (!myControllerData) {
+        if (!slurperCallsign || slurperType !== 'atc') {
             return { 
                 user, 
                 access: false, 
@@ -63,16 +64,20 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 
         // 5. Verify Callsign Match (Loose check: Booked 'OBBI_TWR' should match 'OBBI_TWR' or 'OBBI_V_TWR')
         const bookedPos = (myBooking.position || '').replace(/_/g, '');
-        const onlineCallsign = (myControllerData.callsign || '').replace(/_/g, '');
+        const onlineCallsign = slurperCallsign.replace(/_/g, '');
 
         if (!onlineCallsign.includes(bookedPos) && !bookedPos.includes(onlineCallsign)) {
             return { 
                 user, 
                 access: false, 
-                reason: `Callsign mismatch. Booked: ${myBooking.position}, Online: ${myControllerData.callsign}`,
+                reason: `Callsign mismatch. Booked: ${myBooking.position}, Online: ${slurperCallsign}`,
                 booking: myBooking
             };
         }
+
+        // 3. Fetch VATSIM Online Data
+        const onlineControllers = await fetchOnlineControllers();
+        const safeControllers = Array.isArray(onlineControllers) ? onlineControllers : [];
 
         // 6. Fetch all other booked controllers for this event who are ALSO online
         const { data: eventRoster } = await supabase

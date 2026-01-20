@@ -1,18 +1,34 @@
 <script lang="ts">
     import { enhance } from '$app/forms';
-    import { Sparkles, Send, Mail } from 'lucide-svelte';
+    import { Sparkles, Send, Mail, Check, X, LoaderCircle } from 'lucide-svelte';
     import bgImage from '$lib/assets/images/bg.png?enhanced';
     import { toast } from 'svelte-sonner';
 
-    export let form;
-
     let selectedSubject = '';
+    let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
 
-    $: if (form?.success) {
-        toast.success('Message sent successfully!');
-    } else if (form?.error) {
-        toast.error(form.error);
-    }
+    const enhanceContact = enhance(() => {
+        submitState = 'loading';
+        return async ({ result, update }) => {
+            if (result.type === 'success') {
+                submitState = 'success';
+                toast.success('Thank you for reaching out, we will be in touch soon.');
+                selectedSubject = '';
+                await update({ reset: true });
+                setTimeout(() => (submitState = 'idle'), 2000);
+                return;
+            }
+
+            await update();
+            submitState = 'error';
+            const message =
+                result.type === 'failure'
+                    ? ((result.data as { error?: string })?.error || 'Failed to send message. Please try again later.')
+                    : 'Failed to send message. Please try again later.';
+            toast.error(message);
+            setTimeout(() => (submitState = 'idle'), 2000);
+        };
+    });
 </script>
 
 <main class="flex flex-col">
@@ -39,7 +55,7 @@
 
                 <div class="card w-full max-w-lg bg-base-100/90 backdrop-blur shadow-xl">
                     <div class="card-body">
-                        <form method="POST" use:enhance class="space-y-4">
+                        <form method="POST" use:enhanceContact class="space-y-4">
                             <div class="form-control">
                                 <label class="label" for="name">
                                     <span class="label-text">Name</span>
@@ -98,6 +114,7 @@
                                     <input type="url" name="discord" placeholder="https://discord.gg/..." class="input input-bordered" required />
                                 </div>
                             {/if}
+                            </div>
 
                             <div class="form-control">
                                 <label class="label" for="message">
@@ -107,8 +124,19 @@
                             </div>
 
                             <div class="form-control mt-6">
-                                <button class="btn btn-primary">
-                                    <Send size={18} class="mr-2" /> Send Message
+                                <button
+                                    class="btn {submitState === 'success' ? 'btn-success' : submitState === 'error' ? 'btn-error' : 'btn-primary'}"
+                                    disabled={submitState === 'loading' || submitState === 'success'}
+                                >
+                                    {#if submitState === 'loading'}
+                                        <LoaderCircle size={18} class="mr-2 animate-spin" /> Sending...
+                                    {:else if submitState === 'success'}
+                                        <Check size={18} class="mr-2" /> Sent
+                                    {:else if submitState === 'error'}
+                                        <X size={18} class="mr-2" /> Failed
+                                    {:else}
+                                        <Send size={18} class="mr-2" /> Send Message
+                                    {/if}
                                 </button>
                             </div>
                         </form>

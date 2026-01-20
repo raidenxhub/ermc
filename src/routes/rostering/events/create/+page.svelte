@@ -1,7 +1,37 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { CalendarPlus } from 'lucide-svelte';
+  import { goto } from '$app/navigation';
+  import { toast } from 'svelte-sonner';
+  import { CalendarPlus, Check, X, LoaderCircle } from 'lucide-svelte';
   export let form;
+
+  let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
+
+  const enhanceCreate = enhance(() => {
+    submitState = 'loading';
+    return async ({ result, update }) => {
+      if (result.type === 'redirect') {
+        submitState = 'success';
+        toast.success('Event created successfully.');
+        const location = (result as { location: string }).location;
+        await new Promise((r) => setTimeout(r, 2000));
+        await goto(location);
+        return;
+      }
+
+      await update();
+
+      if (result.type === 'failure') {
+        submitState = 'error';
+        const message = (result.data as { message?: string })?.message || 'Failed to create event.';
+        toast.error(message);
+        setTimeout(() => (submitState = 'idle'), 2000);
+        return;
+      }
+
+      submitState = 'idle';
+    };
+  });
 </script>
 
 <div class="container mx-auto px-4 py-8 max-w-2xl">
@@ -10,7 +40,8 @@
       <CalendarPlus size={32} />
     </div>
     <div>
-      <h1 class="text-3xl font-bold">Create Event (ERMC)</h1>
+      <h1 class="text-3xl font-bold">Create Event</h1>
+      <h3 class="text-3xl font-bold">Khaleej vACC</h3>
       <p class="text-muted-foreground">Staff/coordinators can add events manually.</p>
     </div>
   </div>
@@ -22,7 +53,7 @@
         </div>
     {/if}
 
-  <form method="POST" use:enhance class="space-y-6 bg-card p-6 rounded-xl border shadow-sm">
+  <form method="POST" use:enhanceCreate class="space-y-6 bg-card p-6 rounded-xl border shadow-sm">
     <div>
       <label for="name" class="label text-sm font-medium">Event Name</label>
       <input id="name" name="name" type="text" required class="input input-bordered w-full" placeholder="e.g. ERMC Shuttle" />
@@ -58,6 +89,23 @@
       <textarea id="description" name="description" class="textarea textarea-bordered w-full" rows="4"></textarea>
     </div>
 
-    <button type="submit" class="btn btn-primary">Create Event</button>
+    <button
+      type="submit"
+      class="btn {submitState === 'success' ? 'btn-success' : submitState === 'error' ? 'btn-error' : 'btn-primary'}"
+      disabled={submitState === 'loading' || submitState === 'success'}
+    >
+      {#if submitState === 'loading'}
+        <LoaderCircle size={18} class="animate-spin" />
+        Creating...
+      {:else if submitState === 'success'}
+        <Check size={18} />
+        Created
+      {:else if submitState === 'error'}
+        <X size={18} />
+        Failed
+      {:else}
+        Create Event
+      {/if}
+    </button>
   </form>
 </div>

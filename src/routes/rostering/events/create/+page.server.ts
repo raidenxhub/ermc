@@ -44,12 +44,22 @@ export const actions: Actions = {
 			return fail(500, { message: 'Server configuration error.' });
 		}
 
-		const admin = createClient(publicEnv.PUBLIC_SUPABASE_URL!, serviceRole);
+		const supabaseUrl = privateEnv.PUBLIC_SUPABASE_URL || publicEnv.PUBLIC_SUPABASE_URL;
+		if (!supabaseUrl) {
+			console.error('Missing PUBLIC_SUPABASE_URL');
+			return fail(500, { message: 'Server configuration error.' });
+		}
+
+		const toUtcIso = (value: string) => new Date(value.includes('Z') || value.includes('+') ? value : `${value}Z`).toISOString();
+
+		const admin = createClient(supabaseUrl, serviceRole, {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+		});
 		const { data: eventRecord, error } = await admin.from('events').insert({
 			name,
 			type,
-			start_time: new Date(start_time).toISOString(),
-			end_time: new Date(end_time).toISOString(),
+			start_time: toUtcIso(start_time),
+			end_time: toUtcIso(end_time),
 			airports,
 			link,
 			description,
@@ -59,7 +69,7 @@ export const actions: Actions = {
 
 		if (error || !eventRecord) {
 			console.error(error);
-			return fail(500, { message: 'Failed to create event.' });
+			return fail(500, { message: error?.message ? `Failed to create event: ${error.message}` : 'Failed to create event.' });
 		}
 
         // Auto-generate slots
