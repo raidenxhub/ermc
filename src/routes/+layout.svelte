@@ -5,12 +5,14 @@
   import Navbar from '$lib/components/Navbar.svelte';
   import Footer from '$lib/components/Footer.svelte';
   import CookieConsent from '$lib/components/CookieConsent.svelte';
-  import { navigating } from '$app/stores';
+  import { navigating, page } from '$app/stores';
 
   export let data;
 
   let { supabase, session, user } = data;
   $: ({ supabase, session, user } = data);
+  $: canonicalUrl = $page.url.origin + $page.url.pathname;
+  $: ogImageUrl = $page.url.origin + '/logo.png';
 
   onMount(() => {
     if (!supabase) return
@@ -25,6 +27,13 @@
     };
   });
 </script>
+
+<svelte:head>
+  <link rel="canonical" href={canonicalUrl} />
+  <meta property="og:url" content={canonicalUrl} />
+  <meta property="og:image" content={ogImageUrl} />
+  <meta name="twitter:image" content={ogImageUrl} />
+</svelte:head>
 
 <Toaster position="top-right" richColors />
 

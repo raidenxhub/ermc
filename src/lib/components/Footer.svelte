@@ -1,13 +1,17 @@
+<script lang="ts">
+	import Logo from '$lib/components/Logo.svelte';
+</script>
+
 <footer class="w-full bg-base-300">
 	<div class="container">
 		<div class="divider m-0"></div>
 
 		<div class="footer footer-center gap-4 py-10">
 			<aside>
-                <a href="/" aria-label="Home" class="transition-opacity hover:opacity-50 mb-2 block">
-                    <span class="text-xl font-bold text-secondary">ERMC</span>
-                </a>
-                <p class="text-neutral-content font-medium">© 2026 ERMC • Third‑party utility for VATSIM vACCs</p>
+                <div class="mb-2">
+                    <Logo size={44} />
+                </div>
+                <p class="text-neutral-content font-medium">© 2026 ERMC • Third‑party utility for flight simulation</p>
                 <p class="text-xs text-neutral-content/60 max-w-md mx-auto mt-2">
                     Not affiliated with VATSIM or any real-world aviation authority. 
                     For flight simulation use only.

@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Radar, Info, Menu, LogOut, User, BarChart3, Settings, Send } from 'lucide-svelte';
+    import Logo from '$lib/components/Logo.svelte';
     export let user: any = null;
 
     const onclick = (e: MouseEvent) => {
@@ -19,9 +20,7 @@
 	<div class="drawer-content flex flex-col">
 		<div class="navbar bg-base-100 shadow-sm px-4 lg:px-8">
 			<div class="navbar-start">
-				<a href="/" aria-label="Home" class="transition-opacity hover:opacity-50">
-					<span class="text-2xl font-bold text-primary">ERMC</span>
-				</a>
+				<Logo size={36} />
 			</div>
 
             <div class="navbar-center hidden lg:inline-flex">
