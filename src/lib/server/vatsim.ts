@@ -69,6 +69,70 @@ export async function fetchVatsimEvents() {
 	}
 }
 
+export async function generateRosterSlots(supabase: SupabaseClient, eventRecord: any) {
+    // Check if slots already exist
+    const { count } = await supabase.from('roster_entries').select('*', { count: 'exact', head: true }).eq('event_id', eventRecord.id);
+    
+    // Only generate if no slots exist and we have airports
+    if (count === 0 && eventRecord.airports && eventRecord.airports.length > 0) {
+        const airports = eventRecord.airports.split(',').filter((a: string) => a.length > 0);
+        const positions = ['DEL', 'GND', 'TWR', 'APP', 'CTR', 'STBY'];
+        const entriesToInsert = [];
+
+        const startTime = new Date(eventRecord.start_time);
+        const endTime = new Date(eventRecord.end_time);
+        const durationMs = endTime.getTime() - startTime.getTime();
+        const durationHours = durationMs / (1000 * 60 * 60);
+
+        // Determine slot duration in milliseconds
+        // 3+ hours -> 90 mins (1.5h)
+        // Under 2 hours (and default) -> 60 mins (1h)
+        let slotDurationMs = 60 * 60 * 1000; 
+        if (durationHours >= 3) {
+            slotDurationMs = 90 * 60 * 1000;
+        }
+
+        for (const airport of airports) {
+            for (const pos of positions) {
+                let currentSlotStart = new Date(startTime);
+                
+                while (currentSlotStart.getTime() < endTime.getTime()) {
+                    let currentSlotEnd = new Date(currentSlotStart.getTime() + slotDurationMs);
+                    
+                    // Cap the last slot at event end time
+                    if (currentSlotEnd.getTime() > endTime.getTime()) {
+                        currentSlotEnd = new Date(endTime);
+                    }
+                    
+                    // Don't create tiny sliver slots (e.g. < 15 mins) unless it's the only slot
+                    if (currentSlotEnd.getTime() - currentSlotStart.getTime() < 15 * 60 * 1000 && currentSlotStart.getTime() !== startTime.getTime()) {
+                         break;
+                    }
+
+                    // Use format like OBBI_TWR or OBBI_STBY
+                    const positionName = `${airport}_${pos}`;
+
+                    entriesToInsert.push({
+                        event_id: eventRecord.id,
+                        airport: airport,
+                        position: positionName,
+                        start_time: currentSlotStart.toISOString(),
+                        end_time: currentSlotEnd.toISOString(),
+                        status: 'open'
+                    });
+
+                    currentSlotStart = currentSlotEnd;
+                }
+            }
+        }
+
+        if (entriesToInsert.length > 0) {
+            const { error } = await supabase.from('roster_entries').insert(entriesToInsert);
+            if (error) console.error('Error generating slots:', error);
+        }
+    }
+}
+
 export async function syncEvents(supabase: SupabaseClient) {
 	const events = await fetchVatsimEvents();
 
@@ -113,67 +177,7 @@ export async function syncEvents(supabase: SupabaseClient) {
 			continue;
 		}
 
-		// Generate roster slots if none exist
-		const { count } = await supabase.from('roster_entries').select('*', { count: 'exact', head: true }).eq('event_id', eventRecord.id);
-
-		// Use the inferred/stored airports for slot generation
-        // Also force generation if airports exist but no slots (redundant check with count === 0, but explicit)
-		if (count === 0 && eventRecord.airports && eventRecord.airports.length > 0) {
-			const airports = eventRecord.airports.split(',').filter(a => a.length > 0);
-			const positions = ['DEL', 'GND', 'TWR', 'APP', 'CTR', 'STBY'];
-			const entriesToInsert = [];
-
-            const startTime = new Date(eventRecord.start_time);
-            const endTime = new Date(eventRecord.end_time);
-            const durationMs = endTime.getTime() - startTime.getTime();
-            const durationHours = durationMs / (1000 * 60 * 60);
-
-            // Determine slot duration in milliseconds
-            // 3+ hours -> 90 mins (1.5h)
-            // Under 2 hours (and default) -> 60 mins (1h)
-            // We'll treat 2h to <3h as 60 mins for now to ensure coverage
-            let slotDurationMs = 60 * 60 * 1000; 
-            if (durationHours >= 3) {
-                slotDurationMs = 90 * 60 * 1000;
-            }
-
-			for (const airport of airports) {
-				for (const pos of positions) {
-                    let currentSlotStart = new Date(startTime);
-                    
-                    while (currentSlotStart.getTime() < endTime.getTime()) {
-                        let currentSlotEnd = new Date(currentSlotStart.getTime() + slotDurationMs);
-                        
-                        // Cap the last slot at event end time
-                        if (currentSlotEnd.getTime() > endTime.getTime()) {
-                            currentSlotEnd = new Date(endTime);
-                        }
-                        
-                        // Don't create tiny sliver slots (e.g. < 15 mins) unless it's the only slot
-                        if (currentSlotEnd.getTime() - currentSlotStart.getTime() < 15 * 60 * 1000 && currentSlotStart.getTime() !== startTime.getTime()) {
-                             break;
-                        }
-
-                        // Use format like OBBI_TWR or OBBI_STBY
-                        const positionName = `${airport}_${pos}`;
-
-                        entriesToInsert.push({
-                            event_id: eventRecord.id,
-                            airport: airport,
-                            position: positionName,
-                            start_time: currentSlotStart.toISOString(),
-                            end_time: currentSlotEnd.toISOString(),
-                            status: 'open'
-                        });
-
-                        currentSlotStart = currentSlotEnd;
-                    }
-				}
-			}
-
-			if (entriesToInsert.length > 0) {
-				await supabase.from('roster_entries').insert(entriesToInsert);
-			}
-		}
+		// Generate roster slots
+        await generateRosterSlots(supabase, eventRecord);
 	}
 }

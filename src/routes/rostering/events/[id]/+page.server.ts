@@ -50,6 +50,15 @@ export const actions: Actions = {
             return fail(400, { message: 'Missing required fields' });
         }
 
+        // Validate airport against event
+        const { data: event } = await supabase.from('events').select('airports').eq('id', event_id).single();
+        if (!event) return fail(404, { message: 'Event not found' });
+
+        const allowed = event.airports ? event.airports.split(',').map((a: string) => a.trim().toUpperCase()) : [];
+        if (!allowed.includes(airport) || !['OBBI', 'OKKK'].includes(airport)) {
+             return fail(400, { message: 'Airport not allowed for this event or not managed by ERMC.' });
+        }
+
         const fullPosition = `${airport}_${position}`;
 
         const { error } = await supabase.from('roster_entries').insert({

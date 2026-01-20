@@ -115,7 +115,7 @@
                                     </p>
                                 </div>
                                 <div class="ml-auto font-medium">
-                                    <a href="/coordination/events/{entry.event_id}" class="text-blue-500 hover:underline text-sm">View Event</a>
+                                    <a href="/rostering/events/{entry.event_id}" class="text-blue-500 hover:underline text-sm">View Event</a>
                                 </div>
                             </div>
                         {/each}

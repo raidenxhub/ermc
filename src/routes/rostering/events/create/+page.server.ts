@@ -3,6 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { createClient } from '@supabase/supabase-js';
 import { env as privateEnv } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
+import { generateRosterSlots } from '$lib/server/vatsim';
 
 export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) throw redirect(303, '/auth/login');
@@ -45,22 +46,25 @@ export const actions: Actions = {
 		}
 
 		const admin = createClient(publicEnv.PUBLIC_SUPABASE_URL!, serviceRole);
-		const { error } = await admin.from('events').insert({
+		const { data: eventRecord, error } = await admin.from('events').insert({
 			name,
 			type,
-			start_time,
-			end_time,
+			start_time: new Date(start_time).toISOString(),
+			end_time: new Date(end_time).toISOString(),
 			airports,
 			link,
 			description,
 			banner,
 			status: 'published'
-		});
+		}).select().single();
 
-		if (error) {
+		if (error || !eventRecord) {
 			console.error(error);
 			return fail(500, { message: 'Failed to create event.' });
 		}
+
+        // Auto-generate slots
+        await generateRosterSlots(admin, eventRecord);
 
 		throw redirect(303, '/events/mgmt');
 	}

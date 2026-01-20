@@ -112,6 +112,20 @@ ALTER TABLE public.knocks ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can see knocks they sent or receive" ON public.knocks FOR SELECT USING (auth.uid() = to_user_id OR auth.uid() = from_user_id);
 CREATE POLICY "Users can create knocks they send" ON public.knocks FOR INSERT WITH CHECK (auth.uid() = from_user_id);
 
+CREATE TABLE IF NOT EXISTS public.contact_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+ALTER TABLE public.contact_requests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can insert contact requests" ON public.contact_requests FOR INSERT WITH CHECK (true);
+CREATE POLICY "Staff can view contact requests" ON public.contact_requests FOR SELECT USING (
+  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND (role = 'staff' OR role = 'admin'))
+);
+
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN

@@ -26,6 +26,7 @@
 
             <div class="navbar-center hidden lg:inline-flex">
                 <ul class="menu menu-horizontal gap-1 px-1">
+                    <li><a href="/contact" class="font-medium"><Send size={18} /> Contact</a></li>
                     {#if user}
                         <li><a href="/dashboard" class="font-medium"><Info size={18} /> Dashboard</a></li>
                         <li><a href="/rostering" class="font-medium"><Radar size={18} /> Event Rostering</a></li>
@@ -83,6 +84,7 @@
 
         <ul class="menu min-h-full w-80 bg-base-200 p-4">
             <li class="menu-title text-lg mb-2">ERMC Navigation</li>
+            <li><a href="/contact"><Send size={20} /> Contact</a></li>
             {#if user}
                 <li><a href="/dashboard"><Info size={20} /> Dashboard</a></li>
                 <li><a href="/rostering"><Radar size={20} /> Event Rostering</a></li>

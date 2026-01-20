@@ -1,9 +1,17 @@
 <script lang="ts">
   export let data;
+
+  let allowedAirports: string[] = [];
+  $: {
+      if (data.event.airports) {
+          const eventAirports = data.event.airports.split(',').map((a: string) => a.trim().toUpperCase());
+          allowedAirports = eventAirports.filter((a: string) => ['OBBI', 'OKKK'].includes(a));
+      }
+  }
 </script>
 
 <div class="container mx-auto px-4 py-8 max-w-5xl space-y-6">
-  {#if data.isStaff}
+  {#if data.isStaff && allowedAirports.length > 0}
     <div class="rounded-xl border bg-card text-card-foreground shadow p-6">
         <h3 class="font-semibold text-lg mb-4">Manual Slot Management</h3>
         <form method="POST" action="?/add_slot" class="grid gap-4 md:grid-cols-5 items-end">
@@ -12,8 +20,9 @@
             <div class="form-control w-full">
                 <label class="label"><span class="label-text">Airport</span></label>
                 <select name="airport" class="select select-bordered w-full">
-                    <option value="OBBI">OBBI</option>
-                    <option value="OKKK">OKKK</option>
+                    {#each allowedAirports as apt}
+                        <option value={apt}>{apt}</option>
+                    {/each}
                 </select>
             </div>
 
