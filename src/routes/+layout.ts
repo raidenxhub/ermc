@@ -1,6 +1,10 @@
 import { createBrowserClient } from '@supabase/ssr';
 import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
+import { dev } from '$app/environment';
+import { injectAnalytics } from '@vercel/analytics/sveltekit';
 import type { LayoutLoad } from './$types';
+
+injectAnalytics({ mode: dev ? 'development' : 'production' });
 
 export const load: LayoutLoad = async ({ depends, fetch }) => {
 	/**
