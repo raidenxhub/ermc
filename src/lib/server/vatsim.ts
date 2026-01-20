@@ -1,86 +1,57 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
+import type { VatsimEvent } from '$lib/types';
+import { VATSIM_HOSTNAME } from '$env/static/private';
 
-interface VatsimEvent {
-	id: number;
-	type?: string;
-	name?: string;
-	link?: string;
-	organisers?: Array<{
-		region?: string;
-		division?: string;
-		subdivision?: string;
-	}>;
-	airports?: Array<{ icao?: string }> | string[];
-	routes?: Array<{ departure?: string; arrival?: string; route?: string }>;
-	start_time?: string;
-	end_time?: string;
-	short_description?: string;
-	description?: string;
-	banner?: string;
-}
+export async function fetchVatsimEvents(fetchFn: typeof fetch = fetch, urlPathname = '/server/vatsim') {
+	const api = new URL('https://' + (VATSIM_HOSTNAME || 'my.vatsim.net'));
 
-const VATSIM_MV_EVENTS_BY_DIVISION_API = 'https://my.vatsim.net/api/v2/events/view/division';
-const VATSIM_DIVISION_ID = 'VATMENA';
-const VATSIM_FALLBACK_EVENTS_API = 'https://api.vatsim.net/v2/events';
-const RELEVANT_AIRPORTS = ['OBBI', 'OKKK'];
+	let events: VatsimEvent[] | null = null;
 
-export async function fetchVatsimEvents() {
 	try {
-		const primaryUrl = `${VATSIM_MV_EVENTS_BY_DIVISION_API}/${encodeURIComponent(VATSIM_DIVISION_ID)}`;
-		let events: VatsimEvent[] = [];
+		const response = await fetchFn(new URL('api/v2/events/view/division/mena', api), { headers: { Accept: 'application/json' } });
 
-		const primaryRes = await fetch(primaryUrl, { headers: { accept: 'application/json' } });
-		if (primaryRes.ok) {
-			const json = await primaryRes.json();
-			events = Array.isArray(json) ? json : json?.data || [];
-		} else {
-			const fallbackRes = await fetch(VATSIM_FALLBACK_EVENTS_API);
-			if (!fallbackRes.ok) throw new Error(`Failed to fetch events: ${fallbackRes.statusText}`);
-			const json = await fallbackRes.json();
-			events = Array.isArray(json) ? json : json?.data || [];
-		}
+		if (!response.ok) throw new Error(`[${urlPathname}] Error Fetching Events: ${response.status}: ${response.statusText}`);
 
-		// Filter for events that have at least one airport in our relevant list
-		// OR if the event description/title contains keywords like "Middle East", "Gulf", etc.
-		const relevantEvents = events.filter((event) => {
-			const airportCodes = Array.isArray(event.airports)
-				? (event.airports as Array<{ icao?: string } | string>)
-						.map((a) => (typeof a === 'string' ? a : a?.icao))
-						.filter(Boolean)
-						.map((s) => String(s).toUpperCase())
-				: [];
+		const { data }: { data: VatsimEvent[] } = await response.json();
 
-			const airportMatch = airportCodes.some((icao) => RELEVANT_AIRPORTS.includes(icao));
-
-			// Check routes
-			const routeMatch =
-				event.routes &&
-				Array.isArray(event.routes) &&
-				event.routes.some(
-					(r) =>
-						RELEVANT_AIRPORTS.includes((r.departure || '').toUpperCase()) || RELEVANT_AIRPORTS.includes((r.arrival || '').toUpperCase())
-				);
-
-			const name = (event.name || '').toLowerCase();
-			const desc = (event.description || '').toLowerCase();
-			const textMatch = RELEVANT_AIRPORTS.some((icao) => name.includes(icao.toLowerCase()) || desc.includes(icao.toLowerCase()));
-
-			return airportMatch || routeMatch || textMatch;
-		});
-
-		return relevantEvents;
-	} catch (error) {
-		console.error('Error fetching VATSIM events:', error);
-		return [];
+		events = data.filter((event) =>
+			(event.airports || []).some((airport) => {
+				const icao = typeof airport === 'string' ? airport : airport?.icao;
+				return icao === 'OBBI' || icao === 'OKKK';
+			})
+		);
+	} catch (err) {
+		console.error(`[${urlPathname}] Error Fetching Events:`);
+		console.error(err);
 	}
+
+	if (!events) return [];
+
+	return events;
 }
 
 export async function generateRosterSlots(
 	supabase: SupabaseClient,
-	eventRecord: { id: string; airports?: string | null; start_time: string; end_time: string }
+	eventRecord: { id: string; id_bigint?: string | null; airports?: string | null; start_time: string; end_time: string }
 ) {
 	if (!eventRecord.airports) return;
+
+	let eventIdBigint: string | null = (eventRecord as any).id_bigint || null;
+	if (!eventIdBigint) {
+		const { data } = await supabase.from('events').select('id_bigint, vatsim_id').eq('id', eventRecord.id).maybeSingle();
+		eventIdBigint = (data as any)?.id_bigint || null;
+		if (!eventIdBigint && (data as any)?.vatsim_id) {
+			eventIdBigint = String((data as any).vatsim_id);
+			await supabase.from('events').update({ id_bigint: eventIdBigint }).eq('id', eventRecord.id);
+		}
+	}
+	if (!eventIdBigint) {
+		const millis = BigInt(Date.now());
+		const rand = BigInt(Math.floor(Math.random() * 1000));
+		eventIdBigint = String(millis * 1000n + rand);
+		await supabase.from('events').update({ id_bigint: eventIdBigint }).eq('id', eventRecord.id);
+	}
 
 	const managedAirports = new Set(['OBBI', 'OKKK']);
 	const airports = eventRecord.airports
@@ -101,7 +72,7 @@ export async function generateRosterSlots(
 		(existingRows || []).map((r) => `${r.airport}|${r.position}|${new Date(r.start_time).toISOString()}|${new Date(r.end_time).toISOString()}`)
 	);
 
-	const positions = ['DEL', 'GND', 'TWR', 'APP', 'CTR', 'STBY'];
+	const positions = ['DEL', 'GND', 'TWR', 'APP', 'CTR'];
 	const entriesToInsert = [];
 
 	const startTime = new Date(eventRecord.start_time);
@@ -110,11 +81,16 @@ export async function generateRosterSlots(
 	const durationHours = durationMs / (1000 * 60 * 60);
 
 	// Determine slot duration in milliseconds
-	// 3+ hours -> 90 mins (1.5h)
-	// Under 2 hours (and default) -> 60 mins (1h)
-	let slotDurationMs = 60 * 60 * 1000;
-	if (durationHours >= 3) {
-		slotDurationMs = 90 * 60 * 1000;
+	// <= 90m -> single slot (no splitting)
+	// 2h -> two 1h slots
+	// 3h+ -> 90m sequencing
+	const oneHourMs = 60 * 60 * 1000;
+	const ninetyMinMs = 90 * 60 * 1000;
+	let slotDurationMs = oneHourMs;
+	if (durationMs > 0 && durationMs <= ninetyMinMs) {
+		slotDurationMs = durationMs;
+	} else if (durationHours >= 3) {
+		slotDurationMs = ninetyMinMs;
 	}
 
 	for (const airport of airports) {
@@ -122,12 +98,8 @@ export async function generateRosterSlots(
 			let currentSlotStart = new Date(startTime);
 
 			while (currentSlotStart.getTime() < endTime.getTime()) {
-				let currentSlotEnd = new Date(currentSlotStart.getTime() + slotDurationMs);
-
-				// Cap the last slot at event end time
-				if (currentSlotEnd.getTime() > endTime.getTime()) {
-					currentSlotEnd = new Date(endTime);
-				}
+				const remainingMs = endTime.getTime() - currentSlotStart.getTime();
+				const currentSlotEnd = remainingMs <= slotDurationMs ? new Date(endTime) : new Date(currentSlotStart.getTime() + slotDurationMs);
 
 				// Don't create tiny sliver slots (e.g. < 15 mins) unless it's the only slot
 				if (currentSlotEnd.getTime() - currentSlotStart.getTime() < 15 * 60 * 1000 && currentSlotStart.getTime() !== startTime.getTime()) {
@@ -143,6 +115,7 @@ export async function generateRosterSlots(
 				if (!existing.has(key)) {
 					entriesToInsert.push({
 						event_id: eventRecord.id,
+						event_id_bigint: eventIdBigint,
 						airport,
 						position: positionName,
 						start_time: startIso,
@@ -157,8 +130,14 @@ export async function generateRosterSlots(
 	}
 
 	if (entriesToInsert.length > 0) {
-		const { error } = await supabase.from('roster_entries').insert(entriesToInsert);
-		if (error) console.error('Error generating slots:', error);
+		const res = await supabase.from('roster_entries').insert(entriesToInsert);
+		if (res.error?.code === 'PGRST204') {
+			const stripped = entriesToInsert.map(({ event_id_bigint: _event_id_bigint, ...rest }) => rest);
+			const res2 = await supabase.from('roster_entries').insert(stripped as any);
+			if (res2.error) console.error('Error generating slots:', res2.error);
+		} else if (res.error) {
+			console.error('Error generating slots:', res.error);
+		}
 	}
 }
 
@@ -171,7 +150,14 @@ export async function syncEvents(supabase: SupabaseClient) {
 	};
 
 	try {
-		const events = await fetchVatsimEvents();
+		const nowIso = new Date().toISOString();
+		let events = await fetchVatsimEvents(fetch, '/server/vatsim');
+		const supSet = await supabase.from('vatsim_event_suppressions').select('vatsim_id');
+		if (!supSet.error && Array.isArray(supSet.data) && supSet.data.length > 0) {
+			const suppressed = new Set<number>(supSet.data.map((r: any) => r.vatsim_id).filter((v: any) => typeof v === 'number'));
+			events = events.filter((e) => !suppressed.has(e.id));
+		}
+		const seenVatsimIds = new Set<number>(events.map((e) => e.id).filter((id) => typeof id === 'number'));
 
 		for (const event of events) {
 			try {
@@ -179,27 +165,54 @@ export async function syncEvents(supabase: SupabaseClient) {
 				const end_time = toUtcIsoSafe(event.end_time);
 				if (!start_time || !end_time) continue;
 
-				const name = typeof event.name === 'string' ? event.name : '';
-				const description = typeof event.description === 'string' ? event.description : '';
+				const stripEmojiCodes = (value: string) =>
+					value
+						.replace(/:[a-z0-9_+-]+:/gi, '')
+						.replace(/\s+/g, ' ')
+						.trim();
+				const name = typeof event.name === 'string' ? stripEmojiCodes(event.name) : '';
+				const shortDescription =
+					typeof (event as any).short_description === 'string' ? stripEmojiCodes((event as any).short_description) : '';
+				const description = typeof event.description === 'string' ? stripEmojiCodes(event.description) : '';
 
-				let inferredAirports: string[] = [];
-				if (event.airports && Array.isArray(event.airports)) {
-					inferredAirports = (event.airports as Array<{ icao?: string }>).map((a) => (a?.icao || '').toUpperCase()).filter(Boolean);
+				const normalizeIcao = (value: unknown) => {
+					if (typeof value !== 'string') return null;
+					const trimmed = value.trim().toUpperCase();
+					if (!/^[A-Z0-9]{4}$/.test(trimmed)) return null;
+					return trimmed;
+				};
+
+				const inferred = new Set<string>();
+				if (Array.isArray(event.airports)) {
+					for (const a of event.airports as Array<{ icao?: string } | string>) {
+						const raw = typeof a === 'string' ? a : a?.icao;
+						const icao = normalizeIcao(raw);
+						if (icao) inferred.add(icao);
+					}
+				}
+				if (Array.isArray(event.routes)) {
+					for (const r of event.routes) {
+						const dep = normalizeIcao(r?.departure);
+						const arr = normalizeIcao(r?.arrival);
+						if (dep) inferred.add(dep);
+						if (arr) inferred.add(arr);
+					}
 				}
 
+				let inferredAirports = [...inferred];
 				if (inferredAirports.length === 0) {
 					const title = name.toLowerCase();
 					const desc = description.toLowerCase();
-
 					if (title.includes('bahrain') || desc.includes('bahrain')) inferredAirports.push('OBBI');
 					if (title.includes('kuwait') || desc.includes('kuwait')) inferredAirports.push('OKKK');
-
-					inferredAirports = [...new Set(inferredAirports)];
 				}
+				inferredAirports = [...new Set(inferredAirports)];
 
 				const payload = {
 					vatsim_id: event.id,
+					id_bigint: String(event.id),
 					name: name || null,
+					short_description: shortDescription || null,
 					description: description || null,
 					banner: event.banner || null,
 					link: event.link || null,
@@ -208,7 +221,26 @@ export async function syncEvents(supabase: SupabaseClient) {
 					end_time,
 					airports: inferredAirports.join(','),
 					routes: event.routes ? JSON.stringify(event.routes) : null,
-					status: 'published'
+					status: 'published',
+					cancelled_at: null,
+					delete_at: null,
+					vatsim_last_seen_at: nowIso,
+					vatsim_missing_count: 0
+				};
+				const fallbackPayload = {
+					vatsim_id: payload.vatsim_id,
+					id_bigint: payload.id_bigint,
+					name: payload.name,
+					short_description: payload.short_description,
+					description: payload.description,
+					banner: payload.banner,
+					link: payload.link,
+					type: payload.type,
+					start_time: payload.start_time,
+					end_time: payload.end_time,
+					airports: payload.airports,
+					routes: payload.routes,
+					status: payload.status
 				};
 
 				const { data: existing, error: existingError } = await supabase.from('events').select('id').eq('vatsim_id', event.id).maybeSingle();
@@ -218,13 +250,35 @@ export async function syncEvents(supabase: SupabaseClient) {
 					continue;
 				}
 
-				const { data: eventRecord, error } = existing?.id
-					? await supabase.from('events').update(payload).eq('id', existing.id).select().single()
-					: await supabase
+				let eventRecord: any = null;
+				let error: any = null;
+				if (existing?.id) {
+					const res = await supabase.from('events').update(payload).eq('id', existing.id).select().single();
+					eventRecord = res.data;
+					error = res.error;
+					if (error?.code === 'PGRST204') {
+						const res2 = await supabase.from('events').update(fallbackPayload).eq('id', existing.id).select().single();
+						eventRecord = res2.data;
+						error = res2.error;
+					}
+				} else {
+					const res = await supabase
+						.from('events')
+						.insert({ id: randomUUID(), ...payload })
+						.select()
+						.single();
+					eventRecord = res.data;
+					error = res.error;
+					if (error?.code === 'PGRST204') {
+						const res2 = await supabase
 							.from('events')
-							.insert({ id: randomUUID(), ...payload })
+							.insert({ id: randomUUID(), ...fallbackPayload })
 							.select()
 							.single();
+						eventRecord = res2.data;
+						error = res2.error;
+					}
+				}
 
 				if (error || !eventRecord) {
 					console.error('Error syncing event:', error);
@@ -235,6 +289,44 @@ export async function syncEvents(supabase: SupabaseClient) {
 			} catch (e) {
 				console.error('Error syncing individual event:', e);
 			}
+		}
+
+		try {
+			const { data: publishedVatsimEvents } = await supabase
+				.from('events')
+				.select('id, vatsim_id, vatsim_missing_count, start_time, status')
+				.not('vatsim_id', 'is', null)
+				.eq('status', 'published')
+				.gte('start_time', nowIso);
+
+			for (const row of publishedVatsimEvents || []) {
+				if (!row?.vatsim_id) continue;
+				if (seenVatsimIds.has(row.vatsim_id)) continue;
+				const currentMissing = Number(row.vatsim_missing_count || 0);
+				const nextMissing = currentMissing + 1;
+				if (nextMissing >= 2) {
+					const now = Date.now();
+					const res = await supabase
+						.from('events')
+						.update({
+							status: 'cancelled',
+							cancelled_at: new Date(now).toISOString(),
+							delete_at: new Date(now + 10 * 60 * 1000).toISOString(),
+							vatsim_missing_count: nextMissing
+						})
+						.eq('id', row.id);
+					if (res.error?.code === 'PGRST204') {
+						await supabase.from('events').update({ status: 'cancelled' }).eq('id', row.id);
+					}
+				} else {
+					const res = await supabase.from('events').update({ vatsim_missing_count: nextMissing }).eq('id', row.id);
+					if (res.error?.code === 'PGRST204') {
+						await supabase.from('events').update({ status: 'published' }).eq('id', row.id);
+					}
+				}
+			}
+		} catch (e) {
+			console.error('Error marking missing VATSIM events:', e);
 		}
 	} catch (e) {
 		console.error('Error syncing events:', e);

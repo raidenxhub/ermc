@@ -1,8 +1,8 @@
 <script lang="ts">
     import { browser } from '$app/environment';
     import { enhance } from '$app/forms';
-    import { goto } from '$app/navigation';
-    import { Trash2, AlertTriangle, Save, Check, X, LoaderCircle } from 'lucide-svelte';
+    import { goto, invalidateAll } from '$app/navigation';
+    import { Trash2, AlertTriangle, Save, Check, X } from 'lucide-svelte';
     import { toast } from 'svelte-sonner';
 
     export let data;
@@ -49,7 +49,9 @@
                     toast.success('Account deleted.');
                     const location = (result as { location: string }).location;
                     await new Promise((r) => setTimeout(r, 2000));
+                    await invalidateAll();
                     await goto(location);
+                    await invalidateAll();
                     return;
                 }
 
@@ -98,13 +100,13 @@
                     </div>
                     <div class="card-actions justify-end mt-4">
                         <button
-                            class="btn {saveState === 'success' ? 'btn-success' : saveState === 'error' ? 'btn-error' : 'btn-primary'}"
+                            class="btn ermc-state-btn {saveState === 'success' ? 'ermc-success-btn' : saveState === 'error' ? 'btn-error' : 'btn-primary'}"
                             disabled={saveState === 'loading' || saveState === 'success'}
                         >
                             {#if saveState === 'loading'}
-                                <LoaderCircle size={18} class="animate-spin" />
+                                <span class="loader" style="transform: scale(0.375); transform-origin: center;"></span>
                             {:else if saveState === 'success'}
-                                <Check size={18} />
+                                <span class="ermc-icon-slide-in"><Check size={18} /></span>
                             {:else if saveState === 'error'}
                                 <X size={18} />
                             {:else}
@@ -165,13 +167,13 @@
                         class="input input-bordered w-full border-error focus:outline-error" 
                     />
                     <button
-                        class="btn {deleteState === 'success' ? 'btn-success' : 'btn-error'} w-full"
+                        class="btn ermc-state-btn {deleteState === 'success' ? 'ermc-success-btn' : 'btn-error'} w-full"
                         disabled={confirmDelete !== 'DELETE' || deleteState === 'loading' || deleteState === 'success'}
                     >
                         {#if deleteState === 'loading'}
-                            <LoaderCircle size={18} class="animate-spin" />
+                            <span class="loader" style="transform: scale(0.375); transform-origin: center;"></span>
                         {:else if deleteState === 'success'}
-                            <Check size={18} />
+                            <span class="ermc-icon-slide-in"><Check size={18} /></span>
                         {:else if deleteState === 'error'}
                             <X size={18} />
                         {:else}

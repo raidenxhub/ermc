@@ -25,15 +25,19 @@ export interface VatsimEvent {
 	type: string;
 	name: string;
 	link: string;
-	organizers: {
+	organisers?: {
 		region: string | null;
 		division: string | null;
 		subdivision: string | null;
 		organised_by_vatsim: boolean;
 	}[];
-	airports: {
-		icao: string;
+	organizers?: {
+		region: string | null;
+		division: string | null;
+		subdivision: string | null;
+		organised_by_vatsim: boolean;
 	}[];
+	airports: { icao?: string }[] | string[];
 	routes: {
 		departure: string;
 		arrival: string;

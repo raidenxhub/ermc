@@ -6,24 +6,131 @@
   import { createClient } from '@supabase/supabase-js';
   import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
   import { toast } from 'svelte-sonner';
-  import { Check, X, LoaderCircle } from 'lucide-svelte';
+  import { Check, X } from 'lucide-svelte';
+  import { eventsSyncing } from '$lib/stores/eventsSync';
 
   export let data;
+  const positionOrder = ['DEL', 'GND', 'TWR', 'APP', 'CTR'] as const;
+  const minRatingByPos: Record<string, number> = { DEL: 2, GND: 2, TWR: 3, APP: 4, CTR: 5 };
 
-  let allowedAirports: string[] = [];
+  const posCode = (value: unknown) => {
+    const raw = typeof value === 'string' ? value : '';
+    const last = raw.includes('_') ? raw.split('_').pop() : raw;
+    const code = (last || '').toUpperCase();
+    return (positionOrder as readonly string[]).includes(code) ? code : code;
+  };
+
+  const posLabel = (code: string) => {
+    if (code === 'DEL') return 'DELIVERY';
+    if (code === 'GND') return 'GROUND';
+    if (code === 'TWR') return 'TOWER';
+    if (code === 'APP') return 'APPROACH';
+    if (code === 'CTR') return 'CENTER';
+    return code;
+  };
+
+  const myRating = () => {
+    const r = Number((data?.me as any)?.rating);
+    return Number.isFinite(r) ? r : 0;
+  };
+
+  const isEligibleForEntry = (entry: any) => {
+    if (!entry) return false;
+    if (entry.user_id) return true;
+    if (data?.isStaff) return true;
+    const code = posCode(entry.position);
+    const min = minRatingByPos[code] ?? null;
+    if (!min) return false;
+    const ratingOk = myRating() >= min;
+    const hasCid = !!(data?.me as any)?.cid;
+    if (!ratingOk || !hasCid) return false;
+
+    const eventStart = new Date(data?.event?.start_time || '').getTime();
+    const now = Date.now();
+    if (!Number.isFinite(eventStart)) return false;
+    if (String(data?.event?.status || '') === 'cancelled') return false;
+    if (now > eventStart - 15 * 60 * 1000) return false;
+    return true;
+  };
+
+  let sortedRoster: any[] = [];
+
+  const rosterSort = (a: any, b: any) => {
+    const ar = positionOrder.indexOf(posCode(a.position) as any);
+    const br = positionOrder.indexOf(posCode(b.position) as any);
+    if (ar !== br) return ar - br;
+    return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+  };
+
+  $: sortedRoster = ([...(data?.roster || [])] as any[]).filter(isEligibleForEntry).sort(rosterSort);
+
+  const fmtUtc = (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? iso : d.toUTCString();
+  };
+
+  const confirmBooking = (kind: 'primary' | 'standby', entry: any) => {
+    const eventName = String(data?.event?.name || 'Event');
+    const position = String(entry?.position || '');
+    const airport = String(entry?.airport || '');
+    const start = fmtUtc(String(entry?.start_time || ''));
+    const end = fmtUtc(String(entry?.end_time || ''));
+    const bookingType = kind === 'primary' ? 'Primary booking' : 'Standby request';
+    const lines = [
+      'Confirm booking',
+      '',
+      bookingType,
+      '',
+      `Event: ${eventName}`,
+      `Airport: ${airport}`,
+      `Position: ${position}`,
+      `Time (UTC): ${start} – ${end}`,
+      '',
+      kind === 'primary'
+        ? 'By confirming, you will claim this slot immediately if it is still available.'
+        : 'By confirming, you will be added to standby for this slot (not guaranteed).',
+      '',
+      'Do you want to continue?'
+    ];
+    return confirm(lines.join('\n'));
+  };
+
+  const confirmCancelBooking = (entry: any) => {
+    const eventName = String(data?.event?.name || 'Event');
+    const position = String(entry?.position || '');
+    const airport = String(entry?.airport || '');
+    const start = fmtUtc(String(entry?.start_time || ''));
+    const end = fmtUtc(String(entry?.end_time || ''));
+    const lines = [
+      'Cancel booking',
+      '',
+      `Event: ${eventName}`,
+      `Airport: ${airport}`,
+      `Position: ${position}`,
+      `Time (UTC): ${start} – ${end}`,
+      '',
+      'Are you sure you want to cancel this booking?'
+    ];
+    return confirm(lines.join('\n'));
+  };
+
+  const standbyClaimsFor = (entryId: string) =>
+    ((data?.claims || []) as any[])
+      .filter((c: any) => c?.roster_entry_id === entryId && c?.type === 'standby')
+      .sort((a: any, b: any) => {
+        const at = new Date(a?.created_at || 0).getTime();
+        const bt = new Date(b?.created_at || 0).getTime();
+        return at - bt;
+      });
+
   let managedRoster = true;
+  let deleteCountdown = '';
   $: {
     const raw = (data.event?.airports || '') as string;
     const airports = raw
       ? raw.split(',').map((a: string) => a.trim().toUpperCase()).filter(Boolean)
       : [];
     managedRoster = airports.length === 0 ? true : airports.some((a: string) => ['OBBI', 'OKKK'].includes(a));
-  }
-  $: {
-      if (data.event.airports) {
-          const eventAirports = data.event.airports.split(',').map((a: string) => a.trim().toUpperCase());
-          allowedAirports = eventAirports.filter((a: string) => ['OBBI', 'OKKK'].includes(a));
-      }
   }
 
   type SubmitState = 'idle' | 'loading' | 'success' | 'error';
@@ -69,7 +176,7 @@
   onMount(() => {
     if (!PUBLIC_SUPABASE_URL || !PUBLIC_SUPABASE_ANON_KEY) return;
     const supabase = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY);
-    const channel = supabase
+    const rosterChannel = supabase
       .channel(`roster:${data.event.id}`)
       .on(
         'postgres_changes',
@@ -80,79 +187,81 @@
       )
       .subscribe();
 
+    const eventChannel = supabase
+      .channel(`event:${data.event.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'events', filter: `id=eq.${data.event.id}` },
+        async () => {
+          await invalidateAll();
+        }
+      )
+      .subscribe();
+
+    const tick = () => {
+      const deleteAt = (data.event as any)?.delete_at as string | null | undefined;
+      const isCancelled = (data.event as any)?.status === 'cancelled';
+      if (!isCancelled || !deleteAt) {
+        deleteCountdown = '';
+        return;
+      }
+      const ms = new Date(deleteAt).getTime() - Date.now();
+      if (!Number.isFinite(ms)) {
+        deleteCountdown = '';
+        return;
+      }
+      if (ms <= 0) {
+        deleteCountdown = 'Deleting...';
+        void invalidateAll();
+        return;
+      }
+      const totalSeconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      deleteCountdown = `${minutes}:${String(seconds).padStart(2, '0')}`;
+    };
+
+    tick();
+    const interval = window.setInterval(tick, 1000);
+
     return () => {
-      supabase.removeChannel(channel);
+      window.clearInterval(interval);
+      supabase.removeChannel(rosterChannel);
+      supabase.removeChannel(eventChannel);
     };
   });
 </script>
 
 <div class="container mx-auto px-4 py-8 max-w-5xl space-y-6">
+  {#if $eventsSyncing}
+    <div class="flex items-center justify-center">
+      <span class="loader" style="transform: scale(0.5); transform-origin: center;"></span>
+    </div>
+  {/if}
   {#if !managedRoster}
     <div role="alert" class="alert alert-info">
       <span>This roster is handled by another vACC for this event.</span>
     </div>
   {/if}
-  {#if data.isStaff && allowedAirports.length > 0}
-    <div class="rounded-xl border bg-card text-card-foreground shadow p-6">
-        <h3 class="font-semibold text-lg mb-4">Manual Slot Management</h3>
-        <form method="POST" action="?/add_slot" class="grid gap-4 md:grid-cols-5 items-end" use:useFormEnhance={{ key: `add_slot:${data.event.id}`, successToast: 'Slot added.' }}>
-            <input type="hidden" name="event_id" value={data.event.id} />
-            
-            <div class="form-control w-full">
-                <label class="label" for="manual_airport"><span class="label-text">Airport</span></label>
-                <select id="manual_airport" name="airport" class="select select-bordered w-full">
-                    {#each allowedAirports as apt}
-                        <option value={apt}>{apt}</option>
-                    {/each}
-                </select>
-            </div>
-
-            <div class="form-control w-full">
-                <label class="label" for="manual_position"><span class="label-text">Position</span></label>
-                <select id="manual_position" name="position" class="select select-bordered w-full">
-                    <option value="DEL">DEL</option>
-                    <option value="GND">GND</option>
-                    <option value="TWR">TWR</option>
-                    <option value="APP">APP</option>
-                    <option value="CTR">CTR</option>
-                    <option value="STBY">STBY</option>
-                </select>
-            </div>
-
-            <div class="form-control w-full">
-                <label class="label" for="manual_start_time"><span class="label-text">Start Time</span></label>
-                <input id="manual_start_time" type="datetime-local" name="start_time" class="input input-bordered w-full" value={new Date(data.event.start_time).toISOString().slice(0, 16)} />
-            </div>
-
-            <div class="form-control w-full">
-                <label class="label" for="manual_end_time"><span class="label-text">End Time</span></label>
-                <input id="manual_end_time" type="datetime-local" name="end_time" class="input input-bordered w-full" value={new Date(data.event.end_time).toISOString().slice(0, 16)} />
-            </div>
-
-            <button
-              class="btn w-full {getFormState(`add_slot:${data.event.id}`) === 'success' ? 'btn-success' : getFormState(`add_slot:${data.event.id}`) === 'error' ? 'btn-error' : 'btn-primary'}"
-              disabled={getFormState(`add_slot:${data.event.id}`) === 'loading' || getFormState(`add_slot:${data.event.id}`) === 'success'}
-            >
-              {#if getFormState(`add_slot:${data.event.id}`) === 'loading'}
-                <LoaderCircle size={18} class="animate-spin" />
-              {:else if getFormState(`add_slot:${data.event.id}`) === 'success'}
-                <Check size={18} />
-              {:else if getFormState(`add_slot:${data.event.id}`) === 'error'}
-                <X size={18} />
-              {:else}
-                Add Slot
-              {/if}
-            </button>
-        </form>
+  {#if data.event?.status === 'cancelled'}
+    <div role="alert" class="alert alert-error">
+      <span>
+        This event has been cancelled. Booking is closed.
+        {#if deleteCountdown}
+          It will be auto-deleted in {deleteCountdown}.
+        {/if}
+      </span>
     </div>
   {/if}
-
   <div>
     <h1 class="text-3xl font-bold">{data.event.name}</h1>
     <p class="text-sm text-muted-foreground">{new Date(data.event.start_time).toUTCString()} – {new Date(data.event.end_time).toUTCString()}</p>
     {#if data.event.link}
       <a href={data.event.link} target="_blank" class="btn btn-outline btn-primary mt-2">External Link</a>
     {/if}
+	{#if data.isStaff}
+		<a href={`/events/mgmt/${data.event.id}`} class="btn btn-ghost mt-2">Manage this event</a>
+	{/if}
   </div>
 
   <div class="rounded-xl border bg-card text-card-foreground shadow">
@@ -180,9 +289,21 @@
                 <td colspan="7" class="p-4 text-center text-muted-foreground">No roster entries found.</td>
               </tr>
             {:else}
-              {#each data.roster as entry}
+              {#each sortedRoster as entry, idx (entry.id)}
+                {#if idx === 0 || posCode(entry.position) !== posCode(sortedRoster[idx - 1]?.position)}
+                  <tr class="border-b bg-muted/30">
+                    <td colspan="7" class="px-4 py-2 text-xs font-semibold tracking-wider text-muted-foreground">
+                      {posLabel(posCode(entry.position))} ({posCode(entry.position)})
+                    </td>
+                  </tr>
+                {/if}
                 <tr class="border-b">
-                  <td class="p-4 align-middle font-medium">{entry.position}</td>
+                  <td class="p-4 align-middle font-medium border-l-4 border-error pl-3">
+                    <div class="flex flex-col">
+                      <span class="text-xs text-muted-foreground">{posCode(entry.position)}</span>
+                      <span>{posLabel(posCode(entry.position))}</span>
+                    </div>
+                  </td>
                   <td class="p-4 align-middle">{entry.airport}</td>
                   <td class="p-4 align-middle">{entry.user?.name || 'Open'}</td>
                   <td class="p-4 align-middle">{entry.user?.cid || '-'}</td>
@@ -191,20 +312,32 @@
                   <td class="p-4 align-middle">
                     {#key entry.id}
                       {#if !entry.user}
-                        {#if new Date().getTime() > new Date(data.event.start_time).getTime() - 15 * 60 * 1000}
+                        {#if data.event?.status === 'cancelled'}
+                             <span class="badge badge-ghost opacity-50">Event Cancelled</span>
+                        {:else if new Date().getTime() > new Date(data.event.start_time).getTime() - 15 * 60 * 1000}
                              <span class="badge badge-ghost opacity-50">Booking Closed</span>
                         {:else}
                             <div class="flex gap-2">
-                            <form method="POST" action="?/claim_primary" use:useFormEnhance={{ key: `claim_primary:${entry.id}`, successToast: 'Claimed.' }}>
+                            <form
+                              method="POST"
+                              action="?/claim_primary"
+                              use:useFormEnhance={{ key: `claim_primary:${entry.id}`, successToast: 'Claimed.' }}
+                              on:submit={(e) => {
+                                if (!confirmBooking('primary', entry)) {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }
+                              }}
+                            >
                                 <input type="hidden" name="roster_entry_id" value={entry.id} />
                                 <button
-                                  class="btn btn-sm {getFormState(`claim_primary:${entry.id}`) === 'success' ? 'btn-success' : getFormState(`claim_primary:${entry.id}`) === 'error' ? 'btn-error' : 'btn-primary'}"
+                                  class="btn ermc-state-btn btn-sm {getFormState(`claim_primary:${entry.id}`) === 'success' ? 'ermc-success-btn' : getFormState(`claim_primary:${entry.id}`) === 'error' ? 'btn-error' : 'btn-primary'}"
                                   disabled={getFormState(`claim_primary:${entry.id}`) === 'loading' || getFormState(`claim_primary:${entry.id}`) === 'success'}
                                 >
                                   {#if getFormState(`claim_primary:${entry.id}`) === 'loading'}
-                                    <LoaderCircle size={16} class="animate-spin" />
+                                    <span class="loader" style="transform: scale(0.333); transform-origin: center;"></span>
                                   {:else if getFormState(`claim_primary:${entry.id}`) === 'success'}
-                                    <Check size={16} />
+                                    <span class="ermc-icon-slide-in"><Check size={16} /></span>
                                   {:else if getFormState(`claim_primary:${entry.id}`) === 'error'}
                                     <X size={16} />
                                   {:else}
@@ -212,16 +345,26 @@
                                   {/if}
                                 </button>
                             </form>
-                            <form method="POST" action="?/claim_standby" use:useFormEnhance={{ key: `claim_standby:${entry.id}`, successToast: 'Standby requested.' }}>
+                            <form
+                              method="POST"
+                              action="?/claim_standby"
+                              use:useFormEnhance={{ key: `claim_standby:${entry.id}`, successToast: 'Standby requested.' }}
+                              on:submit={(e) => {
+                                if (!confirmBooking('standby', entry)) {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }
+                              }}
+                            >
                                 <input type="hidden" name="roster_entry_id" value={entry.id} />
                                 <button
-                                  class="btn btn-sm {getFormState(`claim_standby:${entry.id}`) === 'success' ? 'btn-success' : getFormState(`claim_standby:${entry.id}`) === 'error' ? 'btn-error' : 'btn-outline'}"
+                                  class="btn ermc-state-btn btn-sm {getFormState(`claim_standby:${entry.id}`) === 'success' ? 'ermc-success-btn' : getFormState(`claim_standby:${entry.id}`) === 'error' ? 'btn-error' : 'btn-outline'}"
                                   disabled={getFormState(`claim_standby:${entry.id}`) === 'loading' || getFormState(`claim_standby:${entry.id}`) === 'success'}
                                 >
                                   {#if getFormState(`claim_standby:${entry.id}`) === 'loading'}
-                                    <LoaderCircle size={16} class="animate-spin" />
+                                    <span class="loader" style="transform: scale(0.333); transform-origin: center;"></span>
                                   {:else if getFormState(`claim_standby:${entry.id}`) === 'success'}
-                                    <Check size={16} />
+                                    <span class="ermc-icon-slide-in"><Check size={16} /></span>
                                   {:else if getFormState(`claim_standby:${entry.id}`) === 'error'}
                                     <X size={16} />
                                   {:else}
@@ -230,20 +373,45 @@
                                 </button>
                             </form>
                             </div>
+                            {#if standbyClaimsFor(entry.id).length > 0}
+                              <details class="mt-2">
+                                <summary class="cursor-pointer text-xs text-muted-foreground">
+                                  View standby list ({standbyClaimsFor(entry.id).length})
+                                </summary>
+                                <div class="mt-2 space-y-1 text-xs">
+                                  {#each standbyClaimsFor(entry.id) as claim (claim.id)}
+                                    <div class="flex items-center justify-between rounded-md border px-2 py-1">
+                                      <span class="font-medium">{claim.user?.name || claim.user?.cid || 'User'}</span>
+                                      <span class="text-muted-foreground">{claim.user?.rating_short || ''}{#if claim.user?.cid} • {claim.user.cid}{/if}</span>
+                                    </div>
+                                  {/each}
+                                </div>
+                              </details>
+                            {/if}
                         {/if}
                       {:else}
                         {#if entry.user?.id === data.me.id}
                           {#if new Date(entry.start_time).getTime() - Date.now() > 60 * 60 * 1000}
-                            <form method="POST" action="?/cancel_claim" use:useFormEnhance={{ key: `cancel_claim:${entry.id}`, successToast: 'Cancelled.' }}>
+                            <form
+                              method="POST"
+                              action="?/cancel_claim"
+                              use:useFormEnhance={{ key: `cancel_claim:${entry.id}`, successToast: 'Cancelled.' }}
+                              on:submit={(e) => {
+                                if (!confirmCancelBooking(entry)) {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }
+                              }}
+                            >
                               <input type="hidden" name="roster_entry_id" value={entry.id} />
                               <button
-                                class="btn btn-sm {getFormState(`cancel_claim:${entry.id}`) === 'success' ? 'btn-success' : getFormState(`cancel_claim:${entry.id}`) === 'error' ? 'btn-error' : 'btn-error'}"
+                                class="btn ermc-state-btn btn-sm {getFormState(`cancel_claim:${entry.id}`) === 'success' ? 'ermc-success-btn' : getFormState(`cancel_claim:${entry.id}`) === 'error' ? 'btn-error' : 'btn-error'}"
                                 disabled={getFormState(`cancel_claim:${entry.id}`) === 'loading' || getFormState(`cancel_claim:${entry.id}`) === 'success'}
                               >
                                 {#if getFormState(`cancel_claim:${entry.id}`) === 'loading'}
-                                  <LoaderCircle size={16} class="animate-spin" />
+                                  <span class="loader" style="transform: scale(0.333); transform-origin: center;"></span>
                                 {:else if getFormState(`cancel_claim:${entry.id}`) === 'success'}
-                                  <Check size={16} />
+                                  <span class="ermc-icon-slide-in"><Check size={16} /></span>
                                 {:else if getFormState(`cancel_claim:${entry.id}`) === 'error'}
                                   <X size={16} />
                                 {:else}
@@ -255,17 +423,30 @@
                             <span class="text-xs text-muted-foreground">Not cancellable (&lt; 60m)</span>
                           {/if}
                         {:else}
+                          {#if data.event?.status === 'cancelled'}
+                            <span class="badge badge-ghost opacity-50">Event Cancelled</span>
+                          {:else}
                           <div class="flex items-center gap-2">
-                            <form method="POST" action="?/claim_standby" use:useFormEnhance={{ key: `standby:${entry.id}`, successToast: 'Standby requested.' }}>
+                            <form
+                              method="POST"
+                              action="?/claim_standby"
+                              use:useFormEnhance={{ key: `standby:${entry.id}`, successToast: 'Standby requested.' }}
+                              on:submit={(e) => {
+                                if (!confirmBooking('standby', entry)) {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }
+                              }}
+                            >
                               <input type="hidden" name="roster_entry_id" value={entry.id} />
                               <button
-                                class="btn btn-sm {getFormState(`standby:${entry.id}`) === 'success' ? 'btn-success' : getFormState(`standby:${entry.id}`) === 'error' ? 'btn-error' : 'btn-outline'}"
+                                class="btn ermc-state-btn btn-sm {getFormState(`standby:${entry.id}`) === 'success' ? 'ermc-success-btn' : getFormState(`standby:${entry.id}`) === 'error' ? 'btn-error' : 'btn-outline'}"
                                 disabled={getFormState(`standby:${entry.id}`) === 'loading' || getFormState(`standby:${entry.id}`) === 'success'}
                               >
                                 {#if getFormState(`standby:${entry.id}`) === 'loading'}
-                                  <LoaderCircle size={16} class="animate-spin" />
+                                  <span class="loader" style="transform: scale(0.333); transform-origin: center;"></span>
                                 {:else if getFormState(`standby:${entry.id}`) === 'success'}
-                                  <Check size={16} />
+                                  <span class="ermc-icon-slide-in"><Check size={16} /></span>
                                 {:else if getFormState(`standby:${entry.id}`) === 'error'}
                                   <X size={16} />
                                 {:else}
@@ -273,20 +454,20 @@
                                 {/if}
                               </button>
                             </form>
-                            <span class="badge badge-neutral">{(data.claims || []).filter((c) => c.roster_entry_id === entry.id && c.type === 'standby').length} standby</span>
+                            <span class="badge badge-neutral">{standbyClaimsFor(entry.id).length} standby</span>
                             {#if entry.user?.id}
                               <form method="POST" action="?/knock" use:useFormEnhance={{ key: `knock:${entry.id}`, successToast: 'Knock sent.' }}>
                                 <input type="hidden" name="event_id" value={data.event.id} />
                                 <input type="hidden" name="roster_entry_id" value={entry.id} />
                                 <input type="hidden" name="to_user_id" value={entry.user.id} />
                                 <button
-                                  class="btn btn-sm {getFormState(`knock:${entry.id}`) === 'success' ? 'btn-success' : getFormState(`knock:${entry.id}`) === 'error' ? 'btn-error' : 'btn-primary'}"
+                                  class="btn ermc-state-btn btn-sm {getFormState(`knock:${entry.id}`) === 'success' ? 'ermc-success-btn' : getFormState(`knock:${entry.id}`) === 'error' ? 'btn-error' : 'btn-primary'}"
                                   disabled={getFormState(`knock:${entry.id}`) === 'loading' || getFormState(`knock:${entry.id}`) === 'success'}
                                 >
                                   {#if getFormState(`knock:${entry.id}`) === 'loading'}
-                                    <LoaderCircle size={16} class="animate-spin" />
+                                    <span class="loader" style="transform: scale(0.333); transform-origin: center;"></span>
                                   {:else if getFormState(`knock:${entry.id}`) === 'success'}
-                                    <Check size={16} />
+                                    <span class="ermc-icon-slide-in"><Check size={16} /></span>
                                   {:else if getFormState(`knock:${entry.id}`) === 'error'}
                                     <X size={16} />
                                   {:else}
@@ -296,6 +477,22 @@
                               </form>
                             {/if}
                           </div>
+                          {#if standbyClaimsFor(entry.id).length > 0}
+                            <details class="mt-2">
+                              <summary class="cursor-pointer text-xs text-muted-foreground">
+                                View standby list
+                              </summary>
+                              <div class="mt-2 space-y-1 text-xs">
+                                {#each standbyClaimsFor(entry.id) as claim (claim.id)}
+                                  <div class="flex items-center justify-between rounded-md border px-2 py-1">
+                                    <span class="font-medium">{claim.user?.name || claim.user?.cid || 'User'}</span>
+                                    <span class="text-muted-foreground">{claim.user?.rating_short || ''}{#if claim.user?.cid} • {claim.user.cid}{/if}</span>
+                                  </div>
+                                {/each}
+                              </div>
+                            </details>
+                          {/if}
+                          {/if}
                         {/if}
                       {/if}
                     {/key}

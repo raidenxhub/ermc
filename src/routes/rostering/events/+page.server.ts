@@ -1,6 +1,8 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { syncEvents } from '$lib/server/vatsim';
+import { createAdminClient } from '$lib/server/supabaseAdmin';
+import { cleanupExpiredCancelledEvents } from '$lib/server/eventsMaintenance';
 
 export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) throw redirect(303, '/auth/login');
@@ -26,7 +28,9 @@ export const actions: Actions = {
 			return fail(403, { message: 'Forbidden' });
 		}
 		try {
-			await syncEvents(supabase);
+			const admin = createAdminClient();
+			await cleanupExpiredCancelledEvents(admin);
+			await syncEvents(admin);
 			return { success: true };
 		} catch (e) {
 			console.error(e);

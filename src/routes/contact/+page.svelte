@@ -1,8 +1,7 @@
 <script lang="ts">
     import { browser } from '$app/environment';
     import { enhance } from '$app/forms';
-    import { Sparkles, Send, Mail, Check, X, LoaderCircle } from 'lucide-svelte';
-    import bgImage from '$lib/assets/images/bg.png?enhanced';
+    import { Send, Mail, Check, X } from 'lucide-svelte';
     import { toast } from 'svelte-sonner';
 
     export let form: { success?: boolean; error?: string } | null = null;
@@ -19,6 +18,8 @@
                 if (result.type === 'success') {
                     submitState = 'success';
                     toast.success('Thank you for reaching out, we will be in touch soon.');
+                    const warning = (result as { data?: { warning?: string } })?.data?.warning;
+                    if (warning) toast.warning(warning);
                     selectedSubject = '';
                     await update({ reset: true });
                     setTimeout(() => (submitState = 'idle'), 2000);
@@ -40,19 +41,10 @@
 </script>
 
 <main class="flex flex-col">
-    <section class="relative isolate min-h-dvh overflow-hidden bg-cover bg-center bg-no-repeat">
-        <!-- Background Image -->
-        <enhanced:img src={bgImage} alt="" class="absolute inset-0 -z-20 h-full w-full object-cover object-center" />
-
-        <!-- Background Overlay -->
-        <div class="absolute inset-0 -z-10 bg-black/70"></div>
-
+    <section class="min-h-dvh">
         <div class="container mx-auto px-4 py-20">
             <div class="flex flex-col items-center justify-center min-h-[80vh]">
-                <div class="flex items-center gap-2 mb-4">
-                    <Sparkles class="h-8 w-8 text-white" />
-                    <h1 class="text-4xl font-bold text-white md:text-5xl">Contact Us</h1>
-                </div>
+                <h1 class="mb-4 text-4xl font-bold text-white md:text-5xl">Contact Us</h1>
                 <p class="max-w-lg text-gray-300 text-center mb-4">
                     Have a question, inquiry, or partnership proposal? Send us a message and we'll get back to you.
                 </p>
@@ -61,7 +53,7 @@
                     <a href="mailto:ermc@realkenan.dev" class="hover:text-white transition-colors">ermc@realkenan.dev</a>
                 </div>
 
-                <div class="card w-full max-w-lg bg-base-100/90 backdrop-blur shadow-xl">
+                <div class="card w-full max-w-lg bg-base-100 shadow-xl">
                     <div class="card-body">
                         {#if form?.success}
                             <div role="alert" class="alert alert-success mb-4">
@@ -79,21 +71,21 @@
                                 <label class="label" for="name">
                                     <span class="label-text">Name</span>
                                 </label>
-                                <input type="text" name="name" placeholder="Your Name" class="input input-bordered" required />
+                                <input id="name" type="text" name="name" placeholder="Your Name" class="input input-bordered" required />
                             </div>
 
                             <div class="form-control">
                                 <label class="label" for="email">
                                     <span class="label-text">Email</span>
                                 </label>
-                                <input type="email" name="email" placeholder="email@example.com" class="input input-bordered" required />
+                                <input id="email" type="email" name="email" placeholder="email@example.com" class="input input-bordered" required />
                             </div>
 
                             <div class="form-control">
                                 <label class="label" for="subject">
                                     <span class="label-text">Subject</span>
                                 </label>
-                                <select name="subject" class="select select-bordered" bind:value={selectedSubject} required>
+                                <select id="subject" name="subject" class="select select-bordered" bind:value={selectedSubject} required>
                                     <option value="" disabled selected>Select a subject</option>
                                     <option value="General Inquiry">General Inquiry</option>
                                     <option value="Partnership">Partnership Proposal</option>
@@ -109,28 +101,28 @@
                                     <label class="label" for="subdivision">
                                         <span class="label-text">Subdivision / vACC</span>
                                     </label>
-                                    <input type="text" name="subdivision" placeholder="e.g. Khaleej vACC" class="input input-bordered" required />
+                                    <input id="subdivision" type="text" name="subdivision" placeholder="e.g. Khaleej vACC" class="input input-bordered" required />
                                 </div>
 
                                 <div class="form-control">
                                     <label class="label" for="position">
                                         <span class="label-text">Your Position</span>
                                     </label>
-                                    <input type="text" name="position" placeholder="e.g. Events Director" class="input input-bordered" required />
+                                    <input id="position" type="text" name="position" placeholder="e.g. Events Director" class="input input-bordered" required />
                                 </div>
 
                                 <div class="form-control">
                                     <label class="label" for="website">
                                         <span class="label-text">Website</span>
                                     </label>
-                                    <input type="url" name="website" placeholder="https://..." class="input input-bordered" required />
+                                    <input id="website" type="url" name="website" placeholder="https://..." class="input input-bordered" required />
                                 </div>
 
                                 <div class="form-control">
                                     <label class="label" for="discord">
                                         <span class="label-text">Discord Server Invite</span>
                                     </label>
-                                    <input type="url" name="discord" placeholder="https://discord.gg/..." class="input input-bordered" required />
+                                    <input id="discord" type="url" name="discord" placeholder="https://discord.gg/..." class="input input-bordered" required />
                                 </div>
                             {/if}
                             </div>
@@ -139,18 +131,18 @@
                                 <label class="label" for="message">
                                     <span class="label-text">Message</span>
                                 </label>
-                                <textarea name="message" class="textarea textarea-bordered h-32" placeholder="Your message..." required></textarea>
+                                <textarea id="message" name="message" class="textarea textarea-bordered h-32" placeholder="Your message..." required></textarea>
                             </div>
 
                             <div class="form-control mt-6">
                                 <button
-                                    class="btn {submitState === 'success' ? 'btn-success' : submitState === 'error' ? 'btn-error' : 'btn-primary'}"
+                                    class="btn ermc-state-btn {submitState === 'success' ? 'ermc-success-btn' : submitState === 'error' ? 'btn-error' : 'btn-primary'}"
                                     disabled={submitState === 'loading' || submitState === 'success'}
                                 >
                                     {#if submitState === 'loading'}
-                                        <LoaderCircle size={18} class="animate-spin" />
+                                        <span class="loader" style="transform: scale(0.375); transform-origin: center;"></span>
                                     {:else if submitState === 'success'}
-                                        <Check size={18} />
+                                        <span class="ermc-icon-slide-in"><Check size={18} /></span>
                                     {:else if submitState === 'error'}
                                         <X size={18} />
                                     {:else}
@@ -163,8 +155,5 @@
                 </div>
             </div>
         </div>
-
-        <!-- Bottom Gradient -->
-        <div class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-base-300"></div>
     </section>
 </main>

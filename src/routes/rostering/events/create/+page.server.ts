@@ -1,10 +1,14 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
-import { env as privateEnv } from '$env/dynamic/private';
-import { env as publicEnv } from '$env/dynamic/public';
 import { generateRosterSlots } from '$lib/server/vatsim';
+import { createAdminClient } from '$lib/server/supabaseAdmin';
+
+const makeIdBigint = () => {
+	const millis = BigInt(Date.now());
+	const rand = BigInt(Math.floor(Math.random() * 1000));
+	return millis * 1000n + rand;
+};
 
 export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) throw redirect(303, '/auth/login');
@@ -41,34 +45,35 @@ export const actions: Actions = {
 			return fail(400, { message: 'Please provide required fields.' });
 		}
 
-		const serviceRole = privateEnv.SUPABASE_SECRET_KEY;
-		if (!serviceRole) {
-			console.error('Missing SUPABASE_SECRET_KEY');
-			return fail(500, { message: 'Server configuration error.' });
-		}
-
-		const supabaseUrl = privateEnv.PUBLIC_SUPABASE_URL || publicEnv.PUBLIC_SUPABASE_URL;
-		if (!supabaseUrl) {
-			console.error('Missing PUBLIC_SUPABASE_URL');
-			return fail(500, { message: 'Server configuration error.' });
-		}
-
 		const toUtcIso = (value: string) => new Date(value.includes('Z') || value.includes('+') ? value : `${value}Z`).toISOString();
+		const stripEmojiCodes = (value: string) =>
+			value
+				.replace(/:[a-z0-9_+-]+:/gi, '')
+				.replace(/(\*\*|__|\*|_|`)/g, '')
+				.replace(/\s+/g, ' ')
+				.trim();
+		const short_description = stripEmojiCodes(description).slice(0, 160) || null;
 
-		const admin = createClient(supabaseUrl, serviceRole, {
-			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
-		});
+		let admin;
+		try {
+			admin = createAdminClient();
+		} catch (e) {
+			console.error(e);
+			return fail(500, { message: 'Server configuration error.' });
+		}
 		const { data: eventRecord, error } = await admin
 			.from('events')
 			.insert({
 				id: randomUUID(),
+				id_bigint: String(makeIdBigint()),
 				name,
 				type,
 				start_time: toUtcIso(start_time),
 				end_time: toUtcIso(end_time),
 				airports,
 				link,
-				description,
+				short_description,
+				description: stripEmojiCodes(description) || null,
 				banner,
 				status: 'published'
 			})

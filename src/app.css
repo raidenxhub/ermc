@@ -5,7 +5,79 @@
 @import url('https://fonts.googleapis.com/css2?family=Dosis:wght@200..800&family=Inter:wght@100..900&family=Quicksand:wght@300..700&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
 
 body {
-	@apply bg-base-300;
 	@apply text-base-content;
 	@apply font-quicksand;
+	background-image: url('/background.png');
+	background-size: cover;
+	background-position: center;
+	background-repeat: no-repeat;
+	background-attachment: fixed;
+}
+
+.loader {
+	width: 48px;
+	height: 48px;
+	display: inline-block;
+	position: relative;
+}
+.loader::after,
+.loader::before {
+	content: '';
+	box-sizing: border-box;
+	width: 48px;
+	height: 48px;
+	border-radius: 50%;
+	border: 2px solid #fff;
+	position: absolute;
+	left: 0;
+	top: 0;
+	animation: animloader 2s linear infinite;
+}
+.loader::after {
+	animation-delay: 1s;
+}
+
+@keyframes animloader {
+	0% {
+		transform: scale(0);
+		opacity: 1;
+	}
+	100% {
+		transform: scale(1);
+		opacity: 0;
+	}
+}
+
+.ermc-state-btn {
+	transition:
+		background-color 220ms ease,
+		border-color 220ms ease,
+		color 220ms ease,
+		opacity 220ms ease,
+		transform 220ms ease;
+}
+
+.ermc-success-btn {
+	background-color: rgba(16, 185, 129, 0.28) !important;
+	border-color: rgba(16, 185, 129, 0.38) !important;
+	color: rgba(236, 253, 245, 1) !important;
+}
+.ermc-success-btn:hover {
+	background-color: rgba(16, 185, 129, 0.28) !important;
+	border-color: rgba(16, 185, 129, 0.38) !important;
+}
+
+.ermc-icon-slide-in {
+	animation: ermcIconSlideIn 220ms ease both;
+}
+
+@keyframes ermcIconSlideIn {
+	0% {
+		transform: translateX(-8px);
+		opacity: 0;
+	}
+	100% {
+		transform: translateX(0);
+		opacity: 1;
+	}
 }

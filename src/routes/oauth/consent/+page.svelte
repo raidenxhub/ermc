@@ -1,25 +1,25 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Check, LoaderCircle } from 'lucide-svelte';
+	import { Check } from 'lucide-svelte';
 
 	export let data: { destination: string };
 
 	let state: 'loading' | 'success' = 'loading';
 
 	onMount(async () => {
-		await new Promise((r) => setTimeout(r, 900));
+		await new Promise((r) => setTimeout(r, 350));
 		state = 'success';
-		await new Promise((r) => setTimeout(r, 700));
+		await new Promise((r) => setTimeout(r, 350));
 		await goto(data.destination);
 	});
 </script>
 
-<div class="flex h-screen flex-col items-center justify-center bg-base-300">
+<div class="flex min-h-dvh flex-col items-center justify-center">
 	<div class="card w-96 bg-base-100 shadow-xl">
 		<div class="card-body items-center text-center">
 			{#if state === 'loading'}
-				<LoaderCircle size={32} class="animate-spin text-primary" />
+				<span class="loader" style="transform: scale(0.667); transform-origin: center;"></span>
 			{:else}
 				<div class="text-success">
 					<Check size={32} />

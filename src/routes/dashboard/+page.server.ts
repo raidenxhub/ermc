@@ -2,12 +2,20 @@ import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { fetchOnlineControllers, fetchMetars } from '$lib/server/vatsimData';
 import { syncEvents } from '$lib/server/vatsim';
+import { createAdminClient } from '$lib/server/supabaseAdmin';
+import { cleanupExpiredCancelledEvents } from '$lib/server/eventsMaintenance';
 
 export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) throw redirect(303, '/auth/login');
 	if (!supabase) throw redirect(303, '/?error=Server%20configuration%20error');
 
-	syncEvents(supabase).catch((e) => console.error('Dashboard syncEvents failed:', e));
+	try {
+		const admin = createAdminClient();
+		await cleanupExpiredCancelledEvents(admin);
+		await syncEvents(admin);
+	} catch (e) {
+		console.error('Dashboard syncEvents failed:', e);
+	}
 
 	// Fetch user profile
 	const { data: profile, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
@@ -28,6 +36,17 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 		.gte('start_time', new Date().toISOString())
 		.order('start_time', { ascending: true });
 
+	const thankYouWindowStart = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+	const { data: recentlyEndedBooking } = await supabase
+		.from('roster_entries')
+		.select('*, event:events(id,name,end_time,status)')
+		.eq('user_id', user.id)
+		.lt('end_time', new Date().toISOString())
+		.gte('end_time', thankYouWindowStart)
+		.order('end_time', { ascending: false })
+		.limit(1)
+		.maybeSingle();
+
 	// Combine user data
 	const userData = {
 		...user,
@@ -43,7 +62,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 		.from('events')
 		.select('*')
 		.gte('start_time', new Date().toISOString())
-		.eq('status', 'published')
+		.in('status', ['published', 'cancelled'])
 		.order('start_time', { ascending: true })
 		.limit(5);
 
@@ -55,7 +74,8 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 		upcomingEvents: upcomingEvents || [],
 		profileComplete,
 		onlineControllers,
-		metars
+		metars,
+		recentlyEndedBooking: recentlyEndedBooking || null
 	};
 };
 
@@ -70,6 +90,9 @@ export const actions: Actions = {
 
 		if (!cid || !ratingId) {
 			return fail(400, { message: 'Missing CID or Rating' });
+		}
+		if (ratingId === 1) {
+			return fail(400, { message: 'Observer (OBS) is not eligible to control. Please select S1 or higher.' });
 		}
 
 		// Map rating ID to Short/Long

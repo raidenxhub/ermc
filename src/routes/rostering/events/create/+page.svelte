@@ -3,7 +3,7 @@
   import { enhance } from '$app/forms';
   import { goto } from '$app/navigation';
   import { toast } from 'svelte-sonner';
-  import { CalendarPlus, Check, X, LoaderCircle } from 'lucide-svelte';
+  import { CalendarPlus, Check, X } from 'lucide-svelte';
   export let form;
 
   let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
@@ -97,13 +97,13 @@
 
     <button
       type="submit"
-      class="btn {submitState === 'success' ? 'btn-success' : submitState === 'error' ? 'btn-error' : 'btn-primary'}"
+      class="btn ermc-state-btn {submitState === 'success' ? 'ermc-success-btn' : submitState === 'error' ? 'btn-error' : 'btn-primary'}"
       disabled={submitState === 'loading' || submitState === 'success'}
     >
       {#if submitState === 'loading'}
-        <LoaderCircle size={18} class="animate-spin" />
+        <span class="loader" style="transform: scale(0.375); transform-origin: center;"></span>
       {:else if submitState === 'success'}
-        <Check size={18} />
+        <span class="ermc-icon-slide-in"><Check size={18} /></span>
       {:else if submitState === 'error'}
         <X size={18} />
       {:else}

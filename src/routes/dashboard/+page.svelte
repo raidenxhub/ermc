@@ -1,10 +1,53 @@
 <script lang="ts">
     import type { PageData } from './$types';
     import { format, formatDistanceToNow } from 'date-fns';
-    import { BarChart3, CalendarRange, Settings } from 'lucide-svelte';
+    import { BarChart3, CalendarRange, Settings, Check } from 'lucide-svelte';
+    import { eventsSyncing } from '$lib/stores/eventsSync';
+    import { onMount } from 'svelte';
+    import { browser } from '$app/environment';
+    import { toast } from 'svelte-sonner';
 
     export let data: PageData;
     const { user, upcomingEvents, onlineControllers, metars } = data;
+    const bookedEventIds = new Set<string>((user?.rosterEntries || []).map((r: any) => r.event_id).filter((v: any) => typeof v === 'string'));
+
+    const getDeleteCountdown = (deleteAt?: string | null) => {
+        if (!deleteAt) return null;
+        const ms = new Date(deleteAt).getTime() - Date.now();
+        if (!Number.isFinite(ms)) return null;
+        if (ms <= 0) return 'Deleting...';
+        const totalSeconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${String(seconds).padStart(2, '0')}`;
+    };
+
+    onMount(() => {
+        if (!browser) return;
+        const booking: any = (data as any).recentlyEndedBooking;
+        const ev: any = booking?.event;
+        const eventId = typeof ev?.id === 'string' ? ev.id : '';
+        const eventName = typeof ev?.name === 'string' ? ev.name : '';
+        if (!eventId || !eventName) return;
+        if (ev?.status === 'cancelled') return;
+
+        const key = `ermc:thanks:${eventId}`;
+        if (localStorage.getItem(key)) return;
+
+        const tryShow = () => {
+            const anyToast = document.querySelector('[data-sonner-toast]');
+            if (anyToast) return false;
+            toast.success(`Thank you for controlling ${eventName}. Well done.`, { duration: 10_000 });
+            localStorage.setItem(key, new Date().toISOString());
+            return true;
+        };
+
+        if (tryShow()) return;
+        const interval = window.setInterval(() => {
+            if (tryShow()) window.clearInterval(interval);
+        }, 1500);
+        window.setTimeout(() => window.clearInterval(interval), 12_000);
+    });
 </script>
 
 <div class="space-y-6 p-6 pb-16">
@@ -16,7 +59,7 @@
             </p>
             {#if user.role === 'staff' || user.role === 'admin' || user.role === 'coordinator'}
                 <span class="badge badge-secondary font-bold text-xs">
-                    {user.position ? user.position.toUpperCase() : 'STAFF/COORDINATOR'}
+                    {user.position ? user.position.toUpperCase() : 'STAFF'}
                 </span>
             {:else}
                 <span class="badge badge-outline font-bold text-xs">CONTROLLER</span>
@@ -29,7 +72,7 @@
         <!-- Statistics -->
         <a href="/statistics" class="group relative overflow-hidden rounded-xl border bg-card p-6 shadow transition-all hover:shadow-lg hover:border-primary/50">
             <div class="flex items-center gap-4">
-                <div class="rounded-full bg-blue-100 p-3 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                <div class="rounded-full bg-muted/60 p-3 text-muted-foreground">
                     <BarChart3 size={24} />
                 </div>
                 <div>
@@ -42,7 +85,7 @@
         <!-- Coordination -->
         <a href="/coordination" class="group relative overflow-hidden rounded-xl border bg-card p-6 shadow transition-all hover:shadow-lg hover:border-primary/50">
             <div class="flex items-center gap-4">
-                <div class="rounded-full bg-green-100 p-3 text-green-600 dark:bg-green-900/30 dark:text-green-400">
+                <div class="rounded-full bg-muted/60 p-3 text-muted-foreground">
                     <CalendarRange size={24} />
                 </div>
                 <div>
@@ -56,7 +99,7 @@
         {#if user.role === 'staff' || user.role === 'admin' || user.role === 'coordinator'}
             <a href="/events/mgmt" class="group relative overflow-hidden rounded-xl border bg-card p-6 shadow transition-all hover:shadow-lg hover:border-primary/50">
                 <div class="flex items-center gap-4">
-                    <div class="rounded-full bg-purple-100 p-3 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
+                    <div class="rounded-full bg-muted/60 p-3 text-muted-foreground">
                         <Settings size={24} />
                     </div>
                     <div>
@@ -76,7 +119,7 @@
             </div>
             <div class="p-6 pt-0">
                 <div class="flex items-center gap-2">
-                    <div class="text-2xl font-bold">{user.rating_long || 'N/A'}</div>
+                    <div class="text-2xl font-bold">{user.name || 'User'}</div>
                     <span class="badge badge-primary">{user.rating_short}</span>
                 </div>
                 <p class="text-xs text-muted-foreground mt-1">{user.cid || 'Not Connected'}</p>
@@ -133,12 +176,17 @@
             </div>
         </div>
 
-        <div class="col-span-3 rounded-xl border bg-card text-card-foreground shadow">
+        <div class="col-span-3 rounded-xl border bg-card text-card-foreground shadow relative">
              <div class="flex flex-col space-y-1.5 p-6">
                 <h3 class="font-semibold leading-none tracking-tight">Upcoming Events</h3>
                 <p class="text-sm text-muted-foreground">Next 5 events on the network.</p>
             </div>
             <div class="p-6 pt-0">
+                 {#if $eventsSyncing}
+                     <div class="absolute inset-0 z-10 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+                         <span class="loader"></span>
+                     </div>
+                 {/if}
                  <div class="space-y-8">
                     {#each upcomingEvents as event}
                         <div class="flex items-center">
@@ -147,9 +195,25 @@
                                 <p class="text-sm text-muted-foreground">
                                      {format(new Date(event.start_time), 'MMM d, HH:mm')} z
                                 </p>
+                                {#if event.status === 'cancelled'}
+                                    <p class="text-xs text-error font-semibold">
+                                        Cancelled{#if getDeleteCountdown(event.delete_at)} • deletes in {getDeleteCountdown(event.delete_at)}{/if}
+                                    </p>
+                                {/if}
                             </div>
                             <div class="ml-auto font-medium">
-                                <a href="/rostering/events/{event.id}" class="btn btn-sm btn-primary">Book Now</a>
+                                <a
+                                    href="/rostering/events/{event.id}"
+                                    class="btn btn-sm {event.status === 'cancelled' ? 'btn-ghost' : bookedEventIds.has(event.id) ? 'ermc-state-btn ermc-success-btn' : 'btn-primary'}"
+                                >
+                                    {#if event.status === 'cancelled'}
+                                        View
+                                    {:else if bookedEventIds.has(event.id)}
+                                        <span class="inline-flex items-center gap-2"><Check size={16} /> Booked</span>
+                                    {:else}
+                                        Book Event
+                                    {/if}
+                                </a>
                             </div>
                         </div>
                     {/each}

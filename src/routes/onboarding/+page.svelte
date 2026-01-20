@@ -2,8 +2,7 @@
     import { browser } from '$app/environment';
     import { enhance } from '$app/forms';
     import { goto } from '$app/navigation';
-    import { UserPlus, Check, X, LoaderCircle } from 'lucide-svelte';
-    import bgImage from '$lib/assets/images/bg.png?enhanced';
+    import { UserPlus, Check, X } from 'lucide-svelte';
 
     export let form;
     export let data;
@@ -19,7 +18,7 @@
                 if (result.type === 'redirect') {
                     submitState = 'success';
                     const location = (result as { location: string }).location;
-                    await new Promise((r) => setTimeout(r, 2000));
+                    await new Promise((r) => setTimeout(r, 650));
                     await goto(location);
                     return;
                 }
@@ -40,10 +39,7 @@
 </script>
 
 <main class="flex flex-col min-h-screen">
-	<section class="relative isolate flex-grow bg-cover bg-center bg-no-repeat" style="background-image: url({bgImage});">
-		<enhanced:img src={bgImage} alt="" class="absolute inset-0 -z-20 h-full w-full object-cover object-center" />
-		<div class="absolute inset-0 -z-10 bg-black/60"></div>
-
+	<section class="flex-grow">
 		<div class="container mx-auto flex items-center justify-center py-20">
 			<div class="card w-full max-w-2xl bg-base-100/90 shadow-xl backdrop-blur-sm">
 				<div class="card-body">
@@ -90,19 +86,10 @@
                         </div>
                         <div>
                             <label class="label" for="rating"><span class="label-text">VATSIM Rating</span></label>
-                            <select name="rating" id="rating" class="select select-bordered w-full" required>
-                                <option value="" disabled selected>Select Rating</option>
-                                <option value="1">Observer (OBS)</option>
-                                <option value="2">Student 1 (S1)</option>
-                                <option value="3">Student 2 (S2)</option>
-                                <option value="4">Senior Student (S3)</option>
-                                <option value="5">Controller 1 (C1)</option>
-                                <option value="7">Senior Controller (C3)</option>
-                                <option value="8">Instructor 1 (I1)</option>
-                                <option value="10">Senior Instructor (I3)</option>
-                                <option value="11">Supervisor (SUP)</option>
-                                <option value="12">Administrator (ADM)</option>
-                            </select>
+                            <input id="rating" type="text" value="Verified automatically from your CID" disabled class="input input-bordered w-full bg-base-200" />
+                            <div class="mt-2 text-xs text-base-content/70">
+                                We verify your rating and VATSIM member details during onboarding.
+                            </div>
                         </div>
                         <div>
                             <label class="label" for="subdivision"><span class="label-text">Subdivision</span></label>
@@ -145,13 +132,13 @@
 
 						<button
                             type="submit"
-                            class="btn {submitState === 'success' ? 'btn-success' : submitState === 'error' ? 'btn-error' : 'btn-primary'} btn-lg mt-4 w-full"
+                            class="btn ermc-state-btn {submitState === 'success' ? 'ermc-success-btn' : submitState === 'error' ? 'btn-error' : 'btn-primary'} btn-lg mt-4 w-full"
                             disabled={submitState === 'loading' || submitState === 'success'}
                         >
                             {#if submitState === 'loading'}
-                                <LoaderCircle size={24} class="animate-spin" />
+                                <span class="loader" style="transform: scale(0.5); transform-origin: center;"></span>
                             {:else if submitState === 'success'}
-                                <Check size={24} />
+                                <span class="ermc-icon-slide-in"><Check size={24} /></span>
                             {:else if submitState === 'error'}
                                 <X size={24} />
                             {:else}

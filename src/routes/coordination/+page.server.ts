@@ -8,13 +8,14 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 
 	try {
 		const now = new Date().toISOString();
+		const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
 		// 1. Fetch active events (current time is within start/end window)
 		const { data: activeEvents, error: eventError } = await supabase
 			.from('events')
 			.select('*')
 			.lte('start_time', now)
-			.gte('end_time', now)
+			.gte('end_time', fiveMinutesAgo)
 			.eq('status', 'published');
 
 		if (eventError) {
@@ -43,6 +44,10 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 
 		if (!myBooking) {
 			return { user, access: false, reason: 'You do not have a booked slot for any currently active event.' };
+		}
+		const bookingEventEnd = new Date((myBooking as any)?.event?.end_time || '').getTime();
+		if (Number.isFinite(bookingEventEnd) && bookingEventEnd < new Date(fiveMinutesAgo).getTime()) {
+			return { user, access: false, reason: 'This event has ended and coordination is closed.' };
 		}
 
 		const { data: myProfile } = await supabase.from('profiles').select('cid').eq('id', user.id).single();

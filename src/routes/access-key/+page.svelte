@@ -2,7 +2,7 @@
 	import { browser } from '$app/environment';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
-	import { Check, KeyRound, LoaderCircle, X } from 'lucide-svelte';
+	import { Check, KeyRound, X } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
 	export let data: { returnTo: string };
@@ -68,13 +68,13 @@
 
 			<button
 				type="submit"
-				class="btn w-full {submitState === 'success' ? 'btn-success' : submitState === 'error' ? 'btn-error' : 'btn-primary'}"
+				class="btn ermc-state-btn w-full {submitState === 'success' ? 'ermc-success-btn' : submitState === 'error' ? 'btn-error' : 'btn-primary'}"
 				disabled={submitState === 'loading' || submitState === 'success'}
 			>
 				{#if submitState === 'loading'}
-					<LoaderCircle size={18} class="animate-spin" />
+					<span class="loader" style="transform: scale(0.375); transform-origin: center;"></span>
 				{:else if submitState === 'success'}
-					<Check size={18} />
+					<span class="ermc-icon-slide-in"><Check size={18} /></span>
 				{:else if submitState === 'error'}
 					<X size={18} />
 				{:else}

@@ -2,7 +2,8 @@
   import { browser } from '$app/environment';
   import { enhance } from '$app/forms';
   import { toast } from 'svelte-sonner';
-  import { Check, X, LoaderCircle, RefreshCw } from 'lucide-svelte';
+  import { Check, X, RefreshCw } from 'lucide-svelte';
+  import { eventsSyncing } from '$lib/stores/eventsSync';
 
   export let data;
 
@@ -38,13 +39,13 @@
     <p class="text-muted-foreground">View ERMC events and open roster slots.</p>
     <form method="POST" action="?/sync" class="mt-4" use:useEnhanceSync>
       <button
-        class="btn {syncState === 'success' ? 'btn-success' : syncState === 'error' ? 'btn-error' : 'btn-secondary'}"
+        class="btn ermc-state-btn {syncState === 'success' ? 'ermc-success-btn' : syncState === 'error' ? 'btn-error' : 'btn-secondary'}"
         disabled={syncState === 'loading' || syncState === 'success'}
       >
         {#if syncState === 'loading'}
-          <LoaderCircle size={18} class="animate-spin" />
+          <span class="loader" style="transform: scale(0.375); transform-origin: center;"></span>
         {:else if syncState === 'success'}
-          <Check size={18} />
+          <span class="ermc-icon-slide-in"><Check size={18} /></span>
         {:else if syncState === 'error'}
           <X size={18} />
         {:else}
@@ -57,7 +58,12 @@
   {#if data.events.length === 0}
     <p class="text-sm text-muted-foreground">No events found.</p>
   {:else}
-    <div class="space-y-4">
+    <div class="space-y-4 relative">
+      {#if $eventsSyncing}
+        <div class="absolute inset-0 z-10 flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-xl">
+          <span class="loader"></span>
+        </div>
+      {/if}
       {#each data.events as event}
         <div class="rounded-xl border bg-card text-card-foreground shadow p-4">
           <div class="flex items-center justify-between">

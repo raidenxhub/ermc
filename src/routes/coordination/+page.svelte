@@ -4,7 +4,7 @@
     import { goto, invalidateAll } from '$app/navigation';
     import { createClient } from '@supabase/supabase-js';
     import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
-    import { Send, Bell, Ban, Check, Volume2, X, LoaderCircle } from 'lucide-svelte';
+    import { Send, Bell, Ban, Check, Volume2, X } from 'lucide-svelte';
     import { toast } from 'svelte-sonner';
 
     export let data;
@@ -249,13 +249,13 @@
                             autocomplete="off"
                         />
                         <button
-                            class="btn btn-square {sendState === 'success' ? 'btn-success' : sendState === 'error' ? 'btn-error' : 'btn-primary'}"
+                            class="btn ermc-state-btn btn-square {sendState === 'success' ? 'ermc-success-btn' : sendState === 'error' ? 'btn-error' : 'btn-primary'}"
                             disabled={sendState === 'loading' || sendState === 'success'}
                         >
                             {#if sendState === 'loading'}
-                                <LoaderCircle size={18} class="animate-spin" />
+                                <span class="loader" style="transform: scale(0.375); transform-origin: center;"></span>
                             {:else if sendState === 'success'}
-                                <Check size={18} />
+                                <span class="ermc-icon-slide-in"><Check size={18} /></span>
                             {:else if sendState === 'error'}
                                 <X size={18} />
                             {:else}
@@ -310,14 +310,14 @@
                                     <input type="hidden" name="to_user_id" value={controller.user_id} />
                                     <input type="hidden" name="event_id" value={data.event.id} />
                                     <button
-                                        class="btn btn-xs btn-square {knockStateByUserId[controller.user_id] === 'success' ? 'btn-success' : knockStateByUserId[controller.user_id] === 'error' ? 'btn-error' : 'btn-ghost'} {knockStateByUserId[controller.user_id] === 'idle' ? 'text-warning' : ''}"
+                                        class="btn ermc-state-btn btn-xs btn-square {knockStateByUserId[controller.user_id] === 'success' ? 'ermc-success-btn' : knockStateByUserId[controller.user_id] === 'error' ? 'btn-error' : 'btn-ghost'} {knockStateByUserId[controller.user_id] === 'idle' ? 'text-warning' : ''}"
                                         disabled={knockStateByUserId[controller.user_id] === 'loading' || knockStateByUserId[controller.user_id] === 'success'}
                                         title="Knock"
                                     >
                                         {#if knockStateByUserId[controller.user_id] === 'loading'}
-                                            <LoaderCircle size={16} class="animate-spin" />
+                                            <span class="loader" style="transform: scale(0.333); transform-origin: center;"></span>
                                         {:else if knockStateByUserId[controller.user_id] === 'success'}
-                                            <Check size={16} />
+                                            <span class="ermc-icon-slide-in"><Check size={16} /></span>
                                         {:else if knockStateByUserId[controller.user_id] === 'error'}
                                             <X size={16} />
                                         {:else}

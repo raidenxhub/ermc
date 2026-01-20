@@ -1,5 +1,7 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { createAdminClient } from '$lib/server/supabaseAdmin';
+import { sendBookingCancelledEmail, sendBookingConfirmedEmail, sendStandbyRequestedEmail } from '$lib/server/email';
 
 export const load: PageServerLoad = async ({ params, locals: { supabase, user } }) => {
 	if (!user) throw redirect(303, '/auth/login');
@@ -17,7 +19,7 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, user } 
 
 	const { data: claims } = await supabase
 		.from('roster_claims')
-		.select('*')
+		.select('*, user:profiles(id,name,cid,rating_short)')
 		.in(
 			'roster_entry_id',
 			(roster || []).map((r) => r.id)
@@ -53,8 +55,14 @@ export const actions: Actions = {
 		}
 
 		// Validate airport against event
-		const { data: event } = await supabase.from('events').select('airports').eq('id', event_id).single();
+		const { data: event } = await supabase.from('events').select('airports, id_bigint').eq('id', event_id).single();
 		if (!event) return fail(404, { message: 'Event not found' });
+		let eventIdBigint: string | null = (event as any).id_bigint || null;
+		if (!eventIdBigint) {
+			const millis = BigInt(Date.now());
+			const rand = BigInt(Math.floor(Math.random() * 1000));
+			eventIdBigint = String(millis * 1000n + rand);
+		}
 
 		const allowed = event.airports ? event.airports.split(',').map((a: string) => a.trim().toUpperCase()) : [];
 		if (!allowed.includes(airport) || !['OBBI', 'OKKK'].includes(airport)) {
@@ -63,17 +71,52 @@ export const actions: Actions = {
 
 		const fullPosition = `${airport}_${position}`;
 
-		const { error } = await supabase.from('roster_entries').insert({
+		const startDate = new Date(start_time);
+		const endDate = new Date(end_time);
+		if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+			return fail(400, { message: 'Invalid start or end time.' });
+		}
+		if (endDate.getTime() <= startDate.getTime()) {
+			return fail(400, { message: 'End time must be after start time.' });
+		}
+
+		let admin;
+		try {
+			admin = createAdminClient();
+		} catch (e) {
+			console.error(e);
+			return fail(500, { message: 'Server configuration error.' });
+		}
+
+		if (!(event as any).id_bigint && eventIdBigint) {
+			await admin.from('events').update({ id_bigint: eventIdBigint }).eq('id', event_id);
+		}
+
+		const res = await admin.from('roster_entries').insert({
 			event_id,
+			event_id_bigint: eventIdBigint,
 			airport,
 			position: fullPosition,
-			start_time: new Date(start_time).toISOString(),
-			end_time: new Date(end_time).toISOString(),
+			start_time: startDate.toISOString(),
+			end_time: endDate.toISOString(),
 			status: 'open'
 		});
 
-		if (error) {
-			console.error('Error adding slot:', error);
+		if (res.error?.code === 'PGRST204') {
+			const res2 = await admin.from('roster_entries').insert({
+				event_id,
+				airport,
+				position: fullPosition,
+				start_time: startDate.toISOString(),
+				end_time: endDate.toISOString(),
+				status: 'open'
+			});
+			if (res2.error) {
+				console.error('Error adding slot:', res2.error);
+				return fail(500, { message: 'Failed to add slot' });
+			}
+		} else if (res.error) {
+			console.error('Error adding slot:', res.error);
 			return fail(500, { message: 'Failed to add slot' });
 		}
 
@@ -87,14 +130,36 @@ export const actions: Actions = {
 		const roster_entry_id = form.get('roster_entry_id') as string;
 		if (!roster_entry_id) return fail(400, { message: 'Missing roster_entry_id' });
 
+		const { data: meProfile, error: profileError } = await supabase
+			.from('profiles')
+			.select('rating, rating_short, cid, email, name, discord_username')
+			.eq('id', user.id)
+			.single();
+		if (profileError || !meProfile?.rating || !meProfile?.cid) return fail(400, { message: 'Complete your profile before booking.' });
+
 		// ensure the slot is still open
 		const { data: entry } = await supabase.from('roster_entries').select('*, event:events(*)').eq('id', roster_entry_id).single();
 		if (!entry) return fail(404, { message: 'Slot not found' });
 		if (entry.user_id) return fail(400, { message: 'Slot already claimed' });
 
+		const rawPosition = String(entry.position || '');
+		const posCode = rawPosition.includes('_') ? rawPosition.split('_').pop() : rawPosition;
+		const minRatingByPos: Record<string, number> = { DEL: 2, GND: 2, TWR: 3, APP: 4, CTR: 5 };
+		const minRequired = minRatingByPos[posCode || ''] ?? null;
+		if (!minRequired) return fail(400, { message: 'Invalid slot position.' });
+		if (Number(meProfile.rating) < minRequired) {
+			return fail(400, { message: `Your rating is not eligible for ${posCode}.` });
+		}
+
 		// Booking Window Check: Closed 15 mins before event start
 		const now = Date.now();
-		const startTime = new Date(entry.event.start_time).getTime();
+		const eventAny = (entry as any).event;
+		const eventObj = Array.isArray(eventAny) ? eventAny[0] : eventAny;
+		const eventStart = eventObj?.start_time;
+		const eventStatus = eventObj?.status;
+		if (eventStatus === 'cancelled') return fail(400, { message: 'Booking is closed (event cancelled).' });
+		if (!eventStart) return fail(400, { message: 'Event start time missing.' });
+		const startTime = new Date(eventStart).getTime();
 		if (now > startTime - 15 * 60 * 1000) {
 			return fail(400, { message: 'Booking is closed (closes 15m before event).' });
 		}
@@ -104,6 +169,22 @@ export const actions: Actions = {
 		if (error) {
 			console.error(error);
 			return fail(500, { message: 'Failed to claim slot' });
+		}
+
+		const emailTo = typeof meProfile.email === 'string' ? meProfile.email : '';
+		if (emailTo) {
+			const eventAny = (entry as any).event;
+			const eventObj = Array.isArray(eventAny) ? eventAny[0] : eventAny;
+			const eventName = (eventObj?.name as string) || 'Event';
+			const nameForEmail = (meProfile.name as string) || (meProfile.discord_username as string) || null;
+			void sendBookingConfirmedEmail({
+				to: emailTo,
+				name: nameForEmail,
+				eventName,
+				position: String(entry.position || ''),
+				startTime: String(entry.start_time || ''),
+				endTime: String(entry.end_time || '')
+			});
 		}
 		return { success: true };
 	},
@@ -115,10 +196,66 @@ export const actions: Actions = {
 		const roster_entry_id = form.get('roster_entry_id') as string;
 		if (!roster_entry_id) return fail(400, { message: 'Missing roster_entry_id' });
 
+		const { data: meProfile, error: profileError } = await supabase
+			.from('profiles')
+			.select('rating, cid, email, name, discord_username')
+			.eq('id', user.id)
+			.single();
+		if (profileError || !meProfile?.rating || !meProfile?.cid) return fail(400, { message: 'Complete your profile before booking.' });
+
+		const { data: entry } = await supabase
+			.from('roster_entries')
+			.select('position, event:events(start_time,status)')
+			.eq('id', roster_entry_id)
+			.single();
+		if (!entry) return fail(404, { message: 'Slot not found' });
+
+		const rawPosition = String(entry.position || '');
+		const posCode = rawPosition.includes('_') ? rawPosition.split('_').pop() : rawPosition;
+		const minRatingByPos: Record<string, number> = { DEL: 2, GND: 2, TWR: 3, APP: 4, CTR: 5 };
+		const minRequired = minRatingByPos[posCode || ''] ?? null;
+		if (!minRequired) return fail(400, { message: 'Invalid slot position.' });
+		if (Number(meProfile.rating) < minRequired) {
+			return fail(400, { message: `Your rating is not eligible for ${posCode}.` });
+		}
+
+		const now = Date.now();
+		const eventAny = (entry as any).event;
+		const eventObj = Array.isArray(eventAny) ? eventAny[0] : eventAny;
+		const eventStart = eventObj?.start_time;
+		const eventStatus = eventObj?.status;
+		if (eventStatus === 'cancelled') return fail(400, { message: 'Booking is closed (event cancelled).' });
+		if (!eventStart) return fail(400, { message: 'Event start time missing.' });
+		const startTime = new Date(eventStart).getTime();
+		if (now > startTime - 15 * 60 * 1000) {
+			return fail(400, { message: 'Booking is closed (closes 15m before event).' });
+		}
+
+		const { data: existing } = await supabase
+			.from('roster_claims')
+			.select('id')
+			.eq('roster_entry_id', roster_entry_id)
+			.eq('user_id', user.id)
+			.eq('type', 'standby')
+			.maybeSingle();
+		if (existing?.id) return fail(400, { message: 'Already on standby for this slot.' });
+
 		const { error } = await supabase.from('roster_claims').insert({ roster_entry_id, user_id: user.id, type: 'standby' });
 		if (error) {
 			console.error(error);
 			return fail(500, { message: 'Failed to claim standby' });
+		}
+
+		const emailTo = typeof meProfile.email === 'string' ? meProfile.email : '';
+		if (emailTo) {
+			const { data: eventRow } = await supabase
+				.from('events')
+				.select('name')
+				.eq('id', (entry as any).event_id)
+				.maybeSingle();
+			const eventName = (eventRow?.name as string) || 'Event';
+			const nameForEmail = (meProfile.name as string) || (meProfile.discord_username as string) || null;
+			void sendStandbyRequestedEmail({ to: emailTo, name: nameForEmail, eventName, position: String((entry as any).position || '') });
 		}
 		return { success: true };
 	},
@@ -140,6 +277,8 @@ export const actions: Actions = {
 			return fail(400, { message: 'Cancellations are not allowed within 60 minutes of start time.' });
 		}
 
+		const wasPrimary = entry.user_id === user.id;
+
 		// Find user's claim
 		const { data: myClaims } = await supabase.from('roster_claims').select('*').eq('roster_entry_id', roster_entry_id).eq('user_id', user.id);
 
@@ -152,6 +291,63 @@ export const actions: Actions = {
 			console.error(error);
 			return fail(500, { message: 'Failed to cancel claim' });
 		}
+		if (wasPrimary) {
+			const { data: current } = await supabase.from('roster_entries').select('user_id').eq('id', roster_entry_id).single();
+			if (!current?.user_id) {
+				const standbyQuery = supabase
+					.from('roster_claims')
+					.select('id, user_id')
+					.eq('roster_entry_id', roster_entry_id)
+					.eq('type', 'standby')
+					.limit(1);
+
+				const byCreated = await standbyQuery.order('created_at', { ascending: true }).maybeSingle();
+				const byId = byCreated.error ? await standbyQuery.order('id', { ascending: true }).maybeSingle() : byCreated;
+				const standbyNext = byId.data;
+
+				if (standbyNext?.user_id) {
+					await supabase.from('roster_claims').delete().eq('id', standbyNext.id);
+					await supabase.from('roster_claims').insert({ roster_entry_id, user_id: standbyNext.user_id, type: 'primary' });
+
+					const { data: promotedProfile } = await supabase
+						.from('profiles')
+						.select('email,name,discord_username')
+						.eq('id', standbyNext.user_id)
+						.maybeSingle();
+					const emailTo = typeof promotedProfile?.email === 'string' ? promotedProfile.email : '';
+					if (emailTo) {
+						const { data: ev } = await supabase.from('events').select('name').eq('id', entry.event_id).maybeSingle();
+						const eventName = (ev?.name as string) || 'Event';
+						const nameForEmail = (promotedProfile?.name as string) || (promotedProfile?.discord_username as string) || null;
+						void sendBookingConfirmedEmail({
+							to: emailTo,
+							name: nameForEmail,
+							eventName,
+							position: String(entry.position || ''),
+							startTime: String(entry.start_time || ''),
+							endTime: String(entry.end_time || '')
+						});
+					}
+				}
+			}
+		}
+
+		const { data: cancelledProfile } = await supabase.from('profiles').select('email,name,discord_username').eq('id', user.id).maybeSingle();
+		const cancelledEmail = typeof cancelledProfile?.email === 'string' ? cancelledProfile.email : '';
+		if (cancelledEmail) {
+			const { data: ev } = await supabase.from('events').select('name').eq('id', entry.event_id).maybeSingle();
+			const eventName = (ev?.name as string) || 'Event';
+			const nameForEmail = (cancelledProfile?.name as string) || (cancelledProfile?.discord_username as string) || null;
+			void sendBookingCancelledEmail({
+				to: cancelledEmail,
+				name: nameForEmail,
+				eventName,
+				position: String(entry.position || ''),
+				startTime: String(entry.start_time || ''),
+				endTime: String(entry.end_time || '')
+			});
+		}
+
 		return { success: true };
 	},
 

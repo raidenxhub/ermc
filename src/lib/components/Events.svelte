@@ -4,6 +4,13 @@
 	import { CalendarCheck2 } from 'lucide-svelte';
 
 	let { events }: { events: VatsimEvent[] } = $props();
+
+	const cleanText = (value: string) =>
+		value
+			.replace(/:[a-z0-9_+-]+:/gi, '')
+			.replace(/(\*\*|__|\*|_|`)/g, '')
+			.replace(/\s+/g, ' ')
+			.trim();
 </script>
 
 <div class="flex w-full flex-col items-center gap-10">
@@ -21,7 +28,7 @@
 
 				<div class="relative flex flex-col gap-1">
 					<h2 class="card-title text-base lg:text-xl">{event.name}<span class="badge badge-neutral text-xs">{event.type}</span></h2>
-					<p class="text-sm sm:text-base">{event.short_description}</p>
+					<p class="text-sm sm:text-base">{cleanText(event.short_description || event.description || '')}</p>
 				</div>
 
 				<div class="card-actions relative items-center justify-between">

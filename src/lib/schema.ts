@@ -4,9 +4,16 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   name TEXT,
   email TEXT UNIQUE,
   cid TEXT UNIQUE,
+  avatar_url TEXT,
+  discord_username TEXT,
   rating INTEGER,
   rating_short TEXT,
   rating_long TEXT,
+  vatsim_region_id TEXT,
+  vatsim_division_id TEXT,
+  vatsim_subdivision_id TEXT,
+  vatsim_country TEXT,
+  vatsim_countystate TEXT,
   region TEXT,
   division TEXT,
   subdivision TEXT,
@@ -23,8 +30,10 @@ CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE
 
 CREATE TABLE IF NOT EXISTS public.events (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  id_bigint TEXT,
   vatsim_id INTEGER UNIQUE,
   name TEXT NOT NULL,
+  short_description TEXT,
   description TEXT,
   banner TEXT,
   link TEXT,
@@ -34,6 +43,10 @@ CREATE TABLE IF NOT EXISTS public.events (
   airports TEXT,
   routes TEXT,
   status TEXT DEFAULT 'draft',
+  cancelled_at TIMESTAMP WITH TIME ZONE,
+  delete_at TIMESTAMP WITH TIME ZONE,
+  vatsim_last_seen_at TIMESTAMP WITH TIME ZONE,
+  vatsim_missing_count INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -43,6 +56,7 @@ CREATE POLICY "Events are viewable by everyone" ON public.events FOR SELECT USIN
 CREATE TABLE IF NOT EXISTS public.roster_entries (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   event_id UUID REFERENCES public.events(id) ON DELETE CASCADE NOT NULL,
+  event_id_bigint TEXT NOT NULL,
   user_id UUID REFERENCES public.profiles(id),
   position TEXT NOT NULL,
   airport TEXT NOT NULL,
@@ -56,6 +70,13 @@ ALTER TABLE public.roster_entries ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Roster entries are viewable by everyone" ON public.roster_entries FOR SELECT USING (true);
 CREATE POLICY "Authenticated users can claim open slots" ON public.roster_entries FOR UPDATE USING (auth.uid() = user_id OR user_id IS NULL);
 
+CREATE TABLE IF NOT EXISTS public.vatsim_event_suppressions (
+  vatsim_id INTEGER PRIMARY KEY,
+  suppressed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  suppressed_by UUID REFERENCES public.profiles(id)
+);
+ALTER TABLE public.vatsim_event_suppressions ENABLE ROW LEVEL SECURITY;
+
 CREATE TABLE IF NOT EXISTS public.roster_claims (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   roster_entry_id UUID REFERENCES public.roster_entries(id) ON DELETE CASCADE NOT NULL,
@@ -65,6 +86,7 @@ CREATE TABLE IF NOT EXISTS public.roster_claims (
 );
 ALTER TABLE public.roster_claims ENABLE ROW LEVEL SECURITY;
 CREATE UNIQUE INDEX IF NOT EXISTS roster_claims_primary_unique ON public.roster_claims (roster_entry_id) WHERE type = 'primary';
+CREATE UNIQUE INDEX IF NOT EXISTS roster_claims_standby_user_unique ON public.roster_claims (roster_entry_id, user_id) WHERE type = 'standby';
 CREATE POLICY "Claims are viewable to everyone" ON public.roster_claims FOR SELECT USING (true);
 CREATE POLICY "Users can insert their own claims" ON public.roster_claims FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own claims" ON public.roster_claims FOR DELETE USING (auth.uid() = user_id);
@@ -100,6 +122,46 @@ DROP TRIGGER IF EXISTS roster_primary_claim_delete ON public.roster_claims;
 CREATE TRIGGER roster_primary_claim_delete
 AFTER DELETE ON public.roster_claims
 FOR EACH ROW EXECUTE PROCEDURE public.apply_primary_claim();
+
+CREATE OR REPLACE FUNCTION public.promote_standby_on_primary_vacancy()
+RETURNS TRIGGER AS $$
+DECLARE
+  standby_claim RECORD;
+BEGIN
+  IF (TG_OP <> 'DELETE') THEN
+    RETURN OLD;
+  END IF;
+
+  IF (OLD.type <> 'primary') THEN
+    RETURN OLD;
+  END IF;
+
+  SELECT id, roster_entry_id, user_id
+    INTO standby_claim
+    FROM public.roster_claims
+   WHERE roster_entry_id = OLD.roster_entry_id
+     AND type = 'standby'
+   ORDER BY created_at ASC
+   LIMIT 1;
+
+  IF standby_claim.id IS NULL THEN
+    RETURN OLD;
+  END IF;
+
+  DELETE FROM public.roster_claims WHERE id = standby_claim.id;
+  INSERT INTO public.roster_claims (roster_entry_id, user_id, type)
+  VALUES (standby_claim.roster_entry_id, standby_claim.user_id, 'primary');
+
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS roster_promote_standby_on_primary_delete ON public.roster_claims;
+CREATE TRIGGER roster_promote_standby_on_primary_delete
+AFTER DELETE ON public.roster_claims
+FOR EACH ROW
+WHEN (OLD.type = 'primary')
+EXECUTE PROCEDURE public.promote_standby_on_primary_vacancy();
 
 CREATE TABLE IF NOT EXISTS public.knocks (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

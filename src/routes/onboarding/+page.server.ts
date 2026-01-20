@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { env as privateEnv } from '$env/dynamic/private';
+import { fetchVatsimMember, ratingToShortLong } from '$lib/server/vatsimMember';
 
 export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) {
@@ -27,7 +28,6 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const fullName = (formData.get('full_name') as string) || '';
 		const cid = (formData.get('cid') as string) || '';
-		const rating = parseInt((formData.get('rating') as string) || '0');
 		const subdivision = 'Khaleej vACC';
 		const isStaff = formData.get('is_staff') === 'on';
 		const position = (formData.get('position') as string) || null;
@@ -45,23 +45,24 @@ export const actions: Actions = {
 		if (!accessKey || accessKey !== expectedKey) {
 			return fail(400, { message: 'Invalid access key.' });
 		}
-		if (!fullName || !cid || !rating || !subdivision) {
+		if (!fullName || !cid || !subdivision) {
 			return fail(400, { message: 'Please fill in all required fields.' });
 		}
+		let member: Awaited<ReturnType<typeof fetchVatsimMember>> | null = null;
+		try {
+			member = await fetchVatsimMember(cid);
+		} catch (e) {
+			console.error('VATSIM member verify failed:', e);
+			return fail(400, { message: 'Unable to verify your CID with VATSIM right now. Please try again shortly.' });
+		}
 
-		const ratings: Record<number, string> = {
-			1: 'OBS',
-			2: 'S1',
-			3: 'S2',
-			4: 'S3',
-			5: 'C1',
-			7: 'C3',
-			8: 'I1',
-			10: 'I3',
-			11: 'SUP',
-			12: 'ADM'
-		};
-		const rating_short = ratings[rating] || 'OBS';
+		const rating = Number(member.rating);
+		if (!Number.isFinite(rating) || rating <= 0) return fail(400, { message: 'Unable to verify your VATSIM rating.' });
+		if (rating === 1) return fail(400, { message: 'Observer (OBS) is not eligible to control. Please select S1 or higher.' });
+
+		const ratingInfo = ratingToShortLong(rating);
+		const rating_short = ratingInfo.short;
+		const rating_long = ratingInfo.long;
 
 		const email = user.email || user.user_metadata?.email || null;
 
@@ -74,6 +75,12 @@ export const actions: Actions = {
 				cid,
 				rating,
 				rating_short,
+				rating_long,
+				vatsim_region_id: member.region_id != null ? String(member.region_id) : null,
+				vatsim_division_id: member.division_id != null ? String(member.division_id) : null,
+				vatsim_subdivision_id: member.subdivision_id != null ? String(member.subdivision_id) : null,
+				vatsim_country: member.country ?? null,
+				vatsim_countystate: member.countystate ?? null,
 				subdivision,
 				role: isStaff ? 'staff' : 'guest',
 				position,

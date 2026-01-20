@@ -1,11 +1,13 @@
 <script lang="ts">
     import type { PageData } from './$types';
     import { format } from 'date-fns';
-    import { CalendarRange, MapPin, Clock } from 'lucide-svelte';
+    import { CalendarRange, MapPin, Clock, Check } from 'lucide-svelte';
+    import { eventsSyncing } from '$lib/stores/eventsSync';
     
     export let data: PageData;
     // Assuming data.events is passed from +page.server.ts
     const events = data.events || [];
+    const bookedEventIds = new Set<string>(Array.isArray((data as any).bookedEventIds) ? ((data as any).bookedEventIds as string[]) : []);
 
     function getClosingStatus(endTime: string) {
         const end = new Date(endTime).getTime();
@@ -15,6 +17,25 @@
         if (diff < 0) return 'Ended';
         if (diff < 30 * 60 * 1000) return `Closing in ${Math.ceil(diff / 60000)}m`;
         return null;
+    }
+
+    function getDeleteCountdown(deleteAt?: string | null) {
+        if (!deleteAt) return null;
+        const ms = new Date(deleteAt).getTime() - Date.now();
+        if (!Number.isFinite(ms)) return null;
+        if (ms <= 0) return 'Deleting...';
+        const totalSeconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function cleanText(value: string) {
+        return value
+            .replace(/:[a-z0-9_+-]+:/gi, '')
+            .replace(/(\*\*|__|\*|_|`)/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
     }
 </script>
 
@@ -35,9 +56,16 @@
             </div>
         </div>
     {:else}
-        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div class="relative">
+            {#if $eventsSyncing}
+                <div class="absolute inset-0 z-10 flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-xl">
+                    <span class="loader"></span>
+                </div>
+            {/if}
+            <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {#each events as event}
                 {@const closingStatus = getClosingStatus(event.end_time)}
+                {@const deleteCountdown = event.status === 'cancelled' ? getDeleteCountdown(event.delete_at) : null}
                 <div class="group relative flex flex-col rounded-xl border bg-card text-card-foreground shadow transition-all hover:shadow-md hover:border-primary/50">
                     {#if event.banner}
                         <div class="aspect-video w-full overflow-hidden rounded-t-xl bg-muted relative">
@@ -51,6 +79,11 @@
                                     <Clock size={12} /> {closingStatus}
                                 </div>
                             {/if}
+                            {#if event.status === 'cancelled'}
+                                <div class="absolute top-2 left-2 badge badge-error gap-1 font-bold shadow-md">
+                                    Cancelled{#if deleteCountdown} • {deleteCountdown}{/if}
+                                </div>
+                            {/if}
                         </div>
                     {:else}
                         <div class="p-6 pb-2 relative">
@@ -58,6 +91,11 @@
                              {#if closingStatus}
                                 <div class="absolute top-4 right-4 badge badge-warning gap-1 font-bold">
                                     <Clock size={12} /> {closingStatus}
+                                </div>
+                            {/if}
+                            {#if event.status === 'cancelled'}
+                                <div class="absolute top-4 left-4 badge badge-error gap-1 font-bold">
+                                    Cancelled{#if deleteCountdown} • {deleteCountdown}{/if}
                                 </div>
                             {/if}
                         </div>
@@ -76,18 +114,29 @@
                             </div>
                         {/if}
 
-                        <p class="text-sm line-clamp-2 text-muted-foreground">
-                            {event.description || 'No description available.'}
+                        <p class="text-sm line-clamp-4 text-muted-foreground">
+                            {event.short_description ? cleanText(event.short_description) : event.description ? cleanText(event.description) : 'No description available.'}
                         </p>
                     </div>
 
                     <div class="p-6 pt-0 mt-auto">
-                        <a href="/rostering/events/{event.id}" class="btn btn-primary w-full group-hover:btn-active">
-                            View Roster
+                        <a
+                            href="/rostering/events/{event.id}"
+                            class="btn {bookedEventIds.has(event.id) ? 'ermc-state-btn ermc-success-btn' : 'btn-primary'} w-full group-hover:btn-active {event.status === 'cancelled' ? 'btn-disabled' : ''}"
+                            aria-disabled={event.status === 'cancelled'}
+                        >
+                            {#if event.status === 'cancelled'}
+                                Event Cancelled
+                            {:else if bookedEventIds.has(event.id)}
+                                <span class="inline-flex items-center gap-2"><Check size={18} /> Booked</span>
+                            {:else}
+                                View Roster
+                            {/if}
                         </a>
                     </div>
                 </div>
             {/each}
+            </div>
         </div>
     {/if}
 </div>

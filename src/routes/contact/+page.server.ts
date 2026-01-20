@@ -57,7 +57,7 @@ export const actions: Actions = {
 		const webhookUrl = privateEnv.CONTACT_DISCORD_WEBHOOK_URL;
 		if (!webhookUrl) {
 			console.error('Missing CONTACT_DISCORD_WEBHOOK_URL');
-			return fail(500, { error: 'Contact system is not configured. Please try again later.' });
+			return { success: true, warning: 'Message received, but notifications are temporarily unavailable.' };
 		}
 
 		try {
@@ -85,11 +85,11 @@ export const actions: Actions = {
 			if (!res.ok) {
 				const text = await res.text().catch(() => '');
 				console.error('Discord webhook failed:', res.status, text.slice(0, 300));
-				return fail(500, { error: 'Failed to send message notification. Please try again later.' });
+				return { success: true, warning: 'Message received, but notifications are temporarily unavailable.' };
 			}
 		} catch (err) {
 			console.error('Discord webhook error:', err);
-			return fail(500, { error: 'Failed to send message notification. Please try again later.' });
+			return { success: true, warning: 'Message received, but notifications are temporarily unavailable.' };
 		}
 
 		return { success: true };

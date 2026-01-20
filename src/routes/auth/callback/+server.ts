@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { env as publicEnv } from '$env/dynamic/public';
 import { env as privateEnv } from '$env/dynamic/private';
 import { createClient } from '@supabase/supabase-js';
+import { sendWelcomeEmail } from '$lib/server/email';
 
 export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 	const code = url.searchParams.get('code');
@@ -79,6 +80,9 @@ export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 						updated_at: new Date().toISOString()
 						// name and cid are intentionally omitted so they are NULL, triggering onboarding
 					});
+					if (typeof email === 'string' && email.trim().length > 0) {
+						void sendWelcomeEmail({ to: email, name: (discord_username as string) || null });
+					}
 				}
 
 				// Continue to consent screen (it will redirect to onboarding/dashboard as needed)

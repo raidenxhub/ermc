@@ -29,13 +29,29 @@ export async function fetchOnlineControllers() {
 
 		const data: VatsimData = await response.json();
 
-		if (!data || !data.controllers) {
+		if (!data || (!data.controllers && !data.atis)) {
 			console.warn('Invalid VATSIM data format received');
 			return [];
 		}
 
-		// Filter controllers
-		const controllers = data.controllers.filter((c) => RELEVANT_AIRPORTS.some((icao) => c.callsign.startsWith(icao)) && c.facility > 0);
+		const normalizeCallsign = (value: unknown) => {
+			const raw = typeof value === 'string' ? value : '';
+			return raw.trim().toUpperCase();
+		};
+
+		const isRelevant = (callsign: string) =>
+			RELEVANT_AIRPORTS.some(
+				(icao) => callsign.startsWith(`${icao}_`) || callsign.startsWith(`${icao}-`) || callsign === icao || callsign.startsWith(icao)
+			);
+
+		const combined = [...(data.controllers || []), ...(data.atis || [])];
+
+		const controllers = combined.filter((c) => {
+			const callsign = normalizeCallsign(c.callsign);
+			if (!callsign) return false;
+			if (!isRelevant(callsign)) return false;
+			return Number(c.facility) > 0 || callsign.endsWith('_ATIS') || callsign.endsWith('-ATIS');
+		});
 
 		// Map simplified data
 		return controllers.map((c) => ({

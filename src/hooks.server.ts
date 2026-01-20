@@ -1,8 +1,39 @@
 import { createServerClient } from '@supabase/ssr';
 import { type Handle, redirect } from '@sveltejs/kit';
 import { env } from '$env/dynamic/public';
+import { env as privateEnv } from '$env/dynamic/private';
+import { createAdminClient } from '$lib/server/supabaseAdmin';
+import { syncEvents } from '$lib/server/vatsim';
+import { cleanupExpiredCancelledEvents } from '$lib/server/eventsMaintenance';
+
+let vatsimPollerStarted = false;
+
+const startVatsimPoller = () => {
+	if (vatsimPollerStarted) return;
+	if (privateEnv.VATSIM_POLL_ENABLED === 'false') return;
+
+	let intervalMs = Number(privateEnv.VATSIM_POLL_INTERVAL_MS || '30000');
+	if (!Number.isFinite(intervalMs) || intervalMs < 5000) intervalMs = 30000;
+
+	vatsimPollerStarted = true;
+
+	const tick = async () => {
+		try {
+			const admin = createAdminClient();
+			await cleanupExpiredCancelledEvents(admin);
+			await syncEvents(admin);
+		} catch (e) {
+			console.error('VATSIM poller tick failed:', e);
+		}
+	};
+
+	void tick();
+	setInterval(() => void tick(), intervalMs);
+};
 
 export const handle: Handle = async ({ event, resolve }) => {
+	startVatsimPoller();
+
 	if (!env.PUBLIC_SUPABASE_URL || !env.PUBLIC_SUPABASE_ANON_KEY) {
 		event.locals.supabase = null;
 		event.locals.user = null;
