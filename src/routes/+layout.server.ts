@@ -2,6 +2,9 @@ import type { LayoutServerLoad } from './$types';
 import { syncEvents } from '$lib/server/vatsim';
 
 export const load: LayoutServerLoad = async ({ locals: { supabase, user } }) => {
+    if (!supabase) {
+        return { user, events: [] };
+    }
     let profile = null;
     
     // Wrap profile fetch in try/catch to prevent 500s if DB fails

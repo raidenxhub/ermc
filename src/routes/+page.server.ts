@@ -7,6 +7,10 @@ export const load: PageServerLoad = async ({ locals: { user, supabase }, url }) 
 	// 	throw redirect(303, '/dashboard');
 	// }
 
+    if (!supabase) {
+        const error = url.searchParams.get('error') || null;
+        return { events: [], error };
+    }
     let events = [];
     try {
         const { data, error: dbError } = await supabase.from('events').select('*').eq('status', 'published').order('start_time', { ascending: true }).limit(6);
