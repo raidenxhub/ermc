@@ -81,6 +81,7 @@ export const actions: Actions = {
 				vatsim_subdivision_id: member.subdivision_id != null ? String(member.subdivision_id) : null,
 				vatsim_country: member.country ?? null,
 				vatsim_countystate: member.countystate ?? null,
+				vatsim_pilotrating: member.pilotrating != null ? String(member.pilotrating) : null,
 				subdivision,
 				role: isStaff ? 'staff' : 'guest',
 				position,

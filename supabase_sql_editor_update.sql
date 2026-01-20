@@ -102,6 +102,7 @@ alter table public.profiles add column if not exists vatsim_division_id text;
 alter table public.profiles add column if not exists vatsim_subdivision_id text;
 alter table public.profiles add column if not exists vatsim_country text;
 alter table public.profiles add column if not exists vatsim_countystate text;
+alter table public.profiles add column if not exists vatsim_pilotrating text;
 
 alter table public.profiles enable row level security;
 do $$ begin
@@ -116,6 +117,58 @@ do $$ begin
     execute 'create policy "Users can update their own profile" on public.profiles for update using (auth.uid() = id)';
   end if;
 end $$;
+
+create or replace function public.prevent_profile_identity_changes()
+returns trigger as $$
+declare
+  requester_role text;
+begin
+  select role into requester_role from public.profiles where id = auth.uid();
+  if requester_role in ('admin', 'staff', 'coordinator') then
+    return new;
+  end if;
+
+  if old.cid is not null and new.cid is distinct from old.cid then
+    raise exception 'CID is locked. Contact support to change it.' using errcode = '42501';
+  end if;
+  if old.rating is not null and new.rating is distinct from old.rating then
+    raise exception 'VATSIM rating is locked. Contact support to change it.' using errcode = '42501';
+  end if;
+  if old.rating_short is not null and new.rating_short is distinct from old.rating_short then
+    raise exception 'VATSIM rating is locked. Contact support to change it.' using errcode = '42501';
+  end if;
+  if old.rating_long is not null and new.rating_long is distinct from old.rating_long then
+    raise exception 'VATSIM rating is locked. Contact support to change it.' using errcode = '42501';
+  end if;
+
+  if old.vatsim_region_id is not null and new.vatsim_region_id is distinct from old.vatsim_region_id then
+    raise exception 'VATSIM details are locked. Contact support to change them.' using errcode = '42501';
+  end if;
+  if old.vatsim_division_id is not null and new.vatsim_division_id is distinct from old.vatsim_division_id then
+    raise exception 'VATSIM details are locked. Contact support to change them.' using errcode = '42501';
+  end if;
+  if old.vatsim_subdivision_id is not null and new.vatsim_subdivision_id is distinct from old.vatsim_subdivision_id then
+    raise exception 'VATSIM details are locked. Contact support to change them.' using errcode = '42501';
+  end if;
+  if old.vatsim_country is not null and new.vatsim_country is distinct from old.vatsim_country then
+    raise exception 'VATSIM details are locked. Contact support to change them.' using errcode = '42501';
+  end if;
+  if old.vatsim_countystate is not null and new.vatsim_countystate is distinct from old.vatsim_countystate then
+    raise exception 'VATSIM details are locked. Contact support to change them.' using errcode = '42501';
+  end if;
+  if old.vatsim_pilotrating is not null and new.vatsim_pilotrating is distinct from old.vatsim_pilotrating then
+    raise exception 'VATSIM details are locked. Contact support to change them.' using errcode = '42501';
+  end if;
+
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists prevent_profile_identity_changes_trigger on public.profiles;
+create trigger prevent_profile_identity_changes_trigger
+before update on public.profiles
+for each row
+execute procedure public.prevent_profile_identity_changes();
 
 -- ROSTER ENTRIES
 create table if not exists public.roster_entries (
@@ -159,7 +212,7 @@ do $$ begin
   end if;
 end $$;
 
-update public.roster_entries re set event_id_bigint = e.id_bigint
+update public.roster_entries as re set event_id_bigint = e.id_bigint
 from public.events e
 where re.event_id = e.id and (re.event_id_bigint is null or re.event_id_bigint = '');
 alter table public.roster_entries alter column event_id_bigint set not null;

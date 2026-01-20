@@ -2,42 +2,15 @@
     import { browser } from '$app/environment';
     import { enhance } from '$app/forms';
     import { goto, invalidateAll } from '$app/navigation';
-    import { Trash2, AlertTriangle, Save, Check, X } from 'lucide-svelte';
+    import { Trash2, AlertTriangle, Check, X } from 'lucide-svelte';
     import { toast } from 'svelte-sonner';
 
     export let data;
     const { profile } = data;
     
     let confirmDelete = '';
-    let saveState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
     let deleteState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
     type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
-
-    const useEnhanceSave = (formEl: HTMLFormElement) => {
-        if (!browser) return;
-        const submit: SubmitFunction = () => {
-            saveState = 'loading';
-            return async ({ result, update }) => {
-                if (result.type === 'success') {
-                    saveState = 'success';
-                    toast.success('Saved successfully.');
-                    await update({ reset: false });
-                    setTimeout(() => (saveState = 'idle'), 2000);
-                    return;
-                }
-
-                await update({ reset: false });
-                saveState = 'error';
-                const message =
-                    result.type === 'failure'
-                        ? ((result.data as { message?: string })?.message || 'Failed to save changes.')
-                        : 'Failed to save changes.';
-                toast.error(message);
-                setTimeout(() => (saveState = 'idle'), 2000);
-            };
-        };
-        return enhance(formEl, submit);
-    };
 
     const useEnhanceDelete = (formEl: HTMLFormElement) => {
         if (!browser) return;
@@ -93,28 +66,30 @@
                     </div>
                 </div>
 
-                <form method="POST" action="?/updateProfile" use:useEnhanceSave>
-                    <div class="form-control w-full">
-                        <label class="label" for="vatsim_cid"><span class="label-text">VATSIM CID</span></label>
-                        <input id="vatsim_cid" type="text" name="cid" value={profile.cid || ''} class="input input-bordered w-full" />
+                <div class="form-control w-full">
+                    <label class="label" for="vatsim_cid"><span class="label-text">VATSIM CID (Locked)</span></label>
+                    <input id="vatsim_cid" type="text" value={profile.cid || ''} disabled class="input input-bordered w-full bg-base-200" />
+                    <div class="mt-2 text-xs text-base-content/70">To change your CID, contact support.</div>
+                </div>
+
+                <div class="mt-6 rounded-lg border bg-base-200 p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="font-semibold">VATSIM Details (Verified)</div>
+                        {#if profile.rating_short}
+                            <span class="badge badge-success">{profile.rating_short}</span>
+                        {/if}
                     </div>
-                    <div class="card-actions justify-end mt-4">
-                        <button
-                            class="btn ermc-state-btn {saveState === 'success' ? 'ermc-success-btn' : saveState === 'error' ? 'btn-error' : 'btn-primary'}"
-                            disabled={saveState === 'loading' || saveState === 'success'}
-                        >
-                            {#if saveState === 'loading'}
-                                <span class="loader" style="transform: scale(0.375); transform-origin: center;"></span>
-                            {:else if saveState === 'success'}
-                                <span class="ermc-icon-slide-in"><Check size={18} /></span>
-                            {:else if saveState === 'error'}
-                                <X size={18} />
-                            {:else}
-                                <Save size={18} /> Save Changes
-                            {/if}
-                        </button>
+                    <div class="grid gap-2 text-sm md:grid-cols-2">
+                        {#if profile.name}<div><span class="text-base-content/70">Name</span>: {profile.name}</div>{/if}
+                        {#if profile.rating_long}<div><span class="text-base-content/70">Rating</span>: {profile.rating_long}</div>{/if}
+                        {#if profile.vatsim_region_id}<div><span class="text-base-content/70">Region ID</span>: {profile.vatsim_region_id}</div>{/if}
+                        {#if profile.vatsim_division_id}<div><span class="text-base-content/70">Division ID</span>: {profile.vatsim_division_id}</div>{/if}
+                        {#if profile.vatsim_subdivision_id}<div><span class="text-base-content/70">Subdivision ID</span>: {profile.vatsim_subdivision_id}</div>{/if}
+                        {#if profile.vatsim_country}<div><span class="text-base-content/70">Country</span>: {profile.vatsim_country}</div>{/if}
+                        {#if profile.vatsim_countystate}<div><span class="text-base-content/70">County/State</span>: {profile.vatsim_countystate}</div>{/if}
+                        {#if profile.vatsim_pilotrating}<div><span class="text-base-content/70">Pilot Rating</span>: {profile.vatsim_pilotrating}</div>{/if}
                     </div>
-                </form>
+                </div>
             </div>
         </div>
 

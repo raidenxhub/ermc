@@ -3,12 +3,89 @@
     import { enhance } from '$app/forms';
     import { goto } from '$app/navigation';
     import { UserPlus, Check, X } from 'lucide-svelte';
+    import { onDestroy } from 'svelte';
 
     export let form;
     export let data;
 
     let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
+    type CidVerifyState = 'idle' | 'loading' | 'success' | 'error';
+    let cidVerifyState: CidVerifyState = 'idle';
+    let cidVerifyMessage = '';
+    let cidValue = '';
+    let cidVerifiedValue = '';
+    let cidMember: any = null;
+    let cidDebounceTimer: number | null = null;
+    let cidRequestToken = 0;
     type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
+
+    const verifyCid = async (cid: string) => {
+        if (!browser) return;
+        const trimmed = cid.trim();
+        if (!trimmed) {
+            cidVerifyState = 'idle';
+            cidVerifyMessage = '';
+            cidVerifiedValue = '';
+            cidMember = null;
+            return;
+        }
+        if (!/^\d{4,10}$/.test(trimmed)) {
+            cidVerifyState = 'error';
+            cidVerifyMessage = 'CID must be 4–10 digits.';
+            cidVerifiedValue = '';
+            cidMember = null;
+            return;
+        }
+
+        const token = ++cidRequestToken;
+        cidVerifyState = 'loading';
+        cidVerifyMessage = '';
+        try {
+            const res = await fetch(`/api/vatsim/member?cid=${encodeURIComponent(trimmed)}`);
+            const payload = await res.json().catch(() => null);
+            if (token !== cidRequestToken) return;
+            if (!res.ok || !payload?.ok) {
+                cidVerifyState = 'error';
+                cidVerifyMessage = payload?.message || 'Unable to verify CID right now.';
+                cidVerifiedValue = '';
+                cidMember = null;
+                return;
+            }
+            cidVerifyState = 'success';
+            cidVerifiedValue = trimmed;
+            cidMember = payload.member;
+        } catch {
+            if (token !== cidRequestToken) return;
+            cidVerifyState = 'error';
+            cidVerifyMessage = 'Unable to verify CID right now.';
+            cidVerifiedValue = '';
+            cidMember = null;
+        }
+    };
+
+    const onCidInput = (value: string) => {
+        cidValue = value;
+        if (!browser) return;
+        if (cidDebounceTimer) window.clearTimeout(cidDebounceTimer);
+        cidDebounceTimer = window.setTimeout(() => void verifyCid(value), 650);
+    };
+
+    onDestroy(() => {
+        if (!browser) return;
+        if (cidDebounceTimer) window.clearTimeout(cidDebounceTimer);
+    });
+
+    const confirmCidOnSubmit = () => {
+        const cid = cidValue.trim();
+        const lines = [
+            'Confirm your CID',
+            '',
+            `CID: ${cid}`,
+            '',
+            'Are you sure this is your VATSIM CID? Please double-check before continuing.'
+        ];
+        return confirm(lines.join('\n'));
+    };
 
     const useEnhanceOnboarding = (formEl: HTMLFormElement) => {
         if (!browser) return;
@@ -60,7 +137,24 @@
                         </div>
                     {/if}
 
-					<form method="POST" use:useEnhanceOnboarding class="flex flex-col gap-6">
+					<form
+                        method="POST"
+                        use:useEnhanceOnboarding
+                        class="flex flex-col gap-6"
+                        on:submit={(e) => {
+                            if (cidVerifyState !== 'success' || cidVerifiedValue !== cidValue.trim()) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                submitState = 'error';
+                                setTimeout(() => (submitState = 'idle'), 2000);
+                                return;
+                            }
+                            if (!confirmCidOnSubmit()) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                            }
+                        }}
+                    >
                     <div class="rounded-lg border bg-base-200 p-4 space-y-2">
                         <p class="text-sm">We will store your Discord username and email to personalize your ERMC account.</p>
                         <div class="grid gap-4 md:grid-cols-2">
@@ -77,12 +171,46 @@
 
                     <div class="grid gap-4 md:grid-cols-2">
                         <div>
-                            <label class="label" for="full_name"><span class="label-text">Full Name</span></label>
+                            <label class="label" for="full_name"><span class="label-text">VATSIM Name</span></label>
                             <input name="full_name" id="full_name" type="text" placeholder="e.g. John Doe" class="input input-bordered w-full" required />
                         </div>
                         <div>
                             <label class="label" for="cid"><span class="label-text">VATSIM CID</span></label>
-                            <input name="cid" id="cid" type="text" placeholder="e.g. 1000000" class="input input-bordered w-full" required />
+                            <div class="relative">
+                                <input
+                                    name="cid"
+                                    id="cid"
+                                    type="text"
+                                    bind:value={cidValue}
+                                    on:input={(e) => onCidInput((e.currentTarget as HTMLInputElement).value)}
+                                    placeholder="e.g. 1000000"
+                                    inputmode="numeric"
+                                    pattern={'\\d{4,10}'}
+                                    minlength="4"
+                                    maxlength="10"
+                                    class="input input-bordered w-full pr-12"
+                                    required
+                                />
+                                <div class="absolute right-3 top-1/2 -translate-y-1/2">
+                                    {#if cidVerifyState === 'loading'}
+                                        <span class="loader" style="transform: scale(0.35); transform-origin: center;"></span>
+                                    {:else if cidVerifyState === 'success'}
+                                        <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-success text-success-content">
+                                            <Check size={16} />
+                                        </span>
+                                    {:else if cidVerifyState === 'error'}
+                                        <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-error text-error-content">
+                                            <X size={16} />
+                                        </span>
+                                    {/if}
+                                </div>
+                            </div>
+                            {#if cidVerifyMessage}
+                                <div class="mt-2 text-xs text-error">{cidVerifyMessage}</div>
+                            {/if}
+                            <div class="mt-2 text-xs text-base-content/70">
+                                Your CID and verified details are locked after onboarding. Contact support to change them.
+                            </div>
                         </div>
                         <div>
                             <label class="label" for="rating"><span class="label-text">VATSIM Rating</span></label>
@@ -101,6 +229,25 @@
                             </div>
                         </div>
                     </div>
+
+                    {#if cidVerifyState === 'success' && cidMember}
+                        <div class="rounded-lg border bg-base-200 p-4 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="font-semibold">VATSIM Details (Verified)</div>
+                                <span class="badge badge-success">{cidMember.rating_short}</span>
+                            </div>
+                            <div class="grid gap-2 text-sm md:grid-cols-2">
+                                <div><span class="text-base-content/70">Rating</span>: {cidMember.rating_long}</div>
+                                <div><span class="text-base-content/70">Member ID</span>: {cidMember.id}</div>
+                                {#if cidMember.region_id}<div><span class="text-base-content/70">Region ID</span>: {cidMember.region_id}</div>{/if}
+                                {#if cidMember.division_id}<div><span class="text-base-content/70">Division ID</span>: {cidMember.division_id}</div>{/if}
+                                {#if cidMember.subdivision_id}<div><span class="text-base-content/70">Subdivision ID</span>: {cidMember.subdivision_id}</div>{/if}
+                                {#if cidMember.country}<div><span class="text-base-content/70">Country</span>: {cidMember.country}</div>{/if}
+                                {#if cidMember.countystate}<div><span class="text-base-content/70">County/State</span>: {cidMember.countystate}</div>{/if}
+                                {#if cidMember.pilotrating != null}<div><span class="text-base-content/70">Pilot Rating</span>: {cidMember.pilotrating}</div>{/if}
+                            </div>
+                        </div>
+                    {/if}
 
                     <div class="form-control">
                         <label class="label" for="access_key"><span class="label-text">Access Key</span></label>

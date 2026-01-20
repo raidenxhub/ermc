@@ -4,6 +4,7 @@ import { z } from 'zod';
 const memberSchema = z.object({
 	id: z.number(),
 	rating: z.number(),
+	pilotrating: z.number().optional(),
 	country: z.string().nullable().optional(),
 	countystate: z.string().nullable().optional(),
 	region_id: z.union([z.string(), z.number()]).optional(),
@@ -16,17 +17,16 @@ export type VatsimMember = z.infer<typeof memberSchema>;
 export async function fetchVatsimMember(cid: string): Promise<VatsimMember> {
 	const apiKeyRaw = env.VATSIM_API_KEY;
 	const apiKey = typeof apiKeyRaw === 'string' ? apiKeyRaw.trim() : '';
-	if (!apiKey) throw new Error('Missing VATSIM_API_KEY');
 
 	const id = cid.trim();
 	if (!/^\d{4,10}$/.test(id)) throw new Error('Invalid CID');
 
+	const headers: Record<string, string> = { Accept: 'application/json' };
+	if (apiKey) headers['X-API-Key'] = apiKey;
+
 	const res = await fetch(`https://api.vatsim.net/v2/members/${encodeURIComponent(id)}`, {
 		method: 'GET',
-		headers: {
-			Accept: 'application/json',
-			'X-API-Key': apiKey
-		}
+		headers
 	});
 
 	if (!res.ok) {

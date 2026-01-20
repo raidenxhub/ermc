@@ -159,19 +159,23 @@
 
 							{#if user}
 								<div class="dropdown dropdown-end">
-									<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar transition-all duration-300">
-										<div class="rounded-full overflow-hidden transition-all duration-300 {compact ? 'w-10 h-10' : 'w-16 h-16'}">
+									<div tabindex="0" role="button" class="btn btn-ghost btn-circle transition-all duration-300">
+										<div class="avatar">
+											<div
+												class="overflow-hidden rounded-full transition-all duration-300 {compact ? 'w-10 h-10' : 'w-16 h-16'} aspect-square"
+											>
 											{#if navLoading || (!user.cid && !user.name)}
 												<div class="w-full h-full flex items-center justify-center">
 													<span class="loader" style="transform: scale(0.33); transform-origin: center;"></span>
 												</div>
 											{:else if avatarSrc()}
-												<img src={avatarSrc()} alt={displayName()} />
+												<img src={avatarSrc()} alt={displayName()} class="w-full h-full object-cover" />
 											{:else}
 												<div class="w-full h-full rounded-full bg-base-300 flex items-center justify-center font-bold">
 													{displayName().charAt(0).toUpperCase()}
 												</div>
 											{/if}
+											</div>
 										</div>
 									</div>
 									<ul tabindex="-1" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-64">

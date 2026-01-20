@@ -64,19 +64,8 @@ export const actions: Actions = {
 		throw redirect(303, '/');
 	},
 
-	updateProfile: async ({ request, locals: { supabase, user } }) => {
+	updateProfile: async ({ locals: { user } }) => {
 		if (!user) return fail(401, { message: 'Unauthorized' });
-		if (!supabase) return fail(500, { message: 'Server configuration error' });
-
-		const formData = await request.formData();
-		const cid = formData.get('cid') as string;
-
-		if (!cid) return fail(400, { message: 'CID is required' });
-
-		const { error } = await supabase.from('profiles').update({ cid }).eq('id', user.id);
-
-		if (error) return fail(500, { message: 'Failed to update profile' });
-
-		return { success: true };
+		return fail(403, { message: 'CID and VATSIM details are locked. <a href="/contact">Contact support</a> to change them.' });
 	}
 };

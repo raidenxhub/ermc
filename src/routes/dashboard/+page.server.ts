@@ -84,48 +84,7 @@ export const actions: Actions = {
 		if (!user) return fail(401, { message: 'Unauthorized' });
 		if (!supabase) return fail(500, { message: 'Server configuration error.' });
 
-		const data = await request.formData();
-		const cid = data.get('cid') as string;
-		const ratingId = parseInt(data.get('rating') as string);
-
-		if (!cid || !ratingId) {
-			return fail(400, { message: 'Missing CID or Rating' });
-		}
-		if (ratingId === 1) {
-			return fail(400, { message: 'Observer (OBS) is not eligible to control. Please select S1 or higher.' });
-		}
-
-		// Map rating ID to Short/Long
-		const ratings: Record<number, { short: string; long: string }> = {
-			1: { short: 'OBS', long: 'Observer' },
-			2: { short: 'S1', long: 'Student 1' },
-			3: { short: 'S2', long: 'Student 2' },
-			4: { short: 'S3', long: 'Senior Student' },
-			5: { short: 'C1', long: 'Controller 1' },
-			7: { short: 'C3', long: 'Senior Controller' },
-			8: { short: 'I1', long: 'Instructor 1' },
-			10: { short: 'I3', long: 'Senior Instructor' },
-			11: { short: 'SUP', long: 'Supervisor' },
-			12: { short: 'ADM', long: 'Administrator' }
-		};
-
-		const ratingInfo = ratings[ratingId] || { short: 'UNK', long: 'Unknown' };
-
-		const { error } = await supabase.from('profiles').upsert({
-			id: user.id,
-			email: user.email, // ensure email is kept
-			cid,
-			rating: ratingId,
-			rating_short: ratingInfo.short,
-			rating_long: ratingInfo.long,
-			updated_at: new Date().toISOString()
-		});
-
-		if (error) {
-			console.error('Update profile error:', error);
-			return fail(500, { message: 'Failed to update profile' });
-		}
-
-		return { success: true };
+		void request;
+		return fail(403, { message: 'CID and VATSIM details are locked. Contact support to change them.' });
 	}
 };

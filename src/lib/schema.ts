@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   vatsim_subdivision_id TEXT,
   vatsim_country TEXT,
   vatsim_countystate TEXT,
+  vatsim_pilotrating TEXT,
   region TEXT,
   division TEXT,
   subdivision TEXT,
@@ -27,6 +28,58 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+
+CREATE OR REPLACE FUNCTION public.prevent_profile_identity_changes()
+RETURNS TRIGGER AS $$
+DECLARE
+  requester_role TEXT;
+BEGIN
+  SELECT role INTO requester_role FROM public.profiles WHERE id = auth.uid();
+  IF requester_role IN ('admin','staff','coordinator') THEN
+    RETURN NEW;
+  END IF;
+
+  IF OLD.cid IS NOT NULL AND NEW.cid IS DISTINCT FROM OLD.cid THEN
+    RAISE EXCEPTION 'CID is locked. Contact support to change it.' USING ERRCODE = '42501';
+  END IF;
+  IF OLD.rating IS NOT NULL AND NEW.rating IS DISTINCT FROM OLD.rating THEN
+    RAISE EXCEPTION 'VATSIM rating is locked. Contact support to change it.' USING ERRCODE = '42501';
+  END IF;
+  IF OLD.rating_short IS NOT NULL AND NEW.rating_short IS DISTINCT FROM OLD.rating_short THEN
+    RAISE EXCEPTION 'VATSIM rating is locked. Contact support to change it.' USING ERRCODE = '42501';
+  END IF;
+  IF OLD.rating_long IS NOT NULL AND NEW.rating_long IS DISTINCT FROM OLD.rating_long THEN
+    RAISE EXCEPTION 'VATSIM rating is locked. Contact support to change it.' USING ERRCODE = '42501';
+  END IF;
+
+  IF OLD.vatsim_region_id IS NOT NULL AND NEW.vatsim_region_id IS DISTINCT FROM OLD.vatsim_region_id THEN
+    RAISE EXCEPTION 'VATSIM details are locked. Contact support to change them.' USING ERRCODE = '42501';
+  END IF;
+  IF OLD.vatsim_division_id IS NOT NULL AND NEW.vatsim_division_id IS DISTINCT FROM OLD.vatsim_division_id THEN
+    RAISE EXCEPTION 'VATSIM details are locked. Contact support to change them.' USING ERRCODE = '42501';
+  END IF;
+  IF OLD.vatsim_subdivision_id IS NOT NULL AND NEW.vatsim_subdivision_id IS DISTINCT FROM OLD.vatsim_subdivision_id THEN
+    RAISE EXCEPTION 'VATSIM details are locked. Contact support to change them.' USING ERRCODE = '42501';
+  END IF;
+  IF OLD.vatsim_country IS NOT NULL AND NEW.vatsim_country IS DISTINCT FROM OLD.vatsim_country THEN
+    RAISE EXCEPTION 'VATSIM details are locked. Contact support to change them.' USING ERRCODE = '42501';
+  END IF;
+  IF OLD.vatsim_countystate IS NOT NULL AND NEW.vatsim_countystate IS DISTINCT FROM OLD.vatsim_countystate THEN
+    RAISE EXCEPTION 'VATSIM details are locked. Contact support to change them.' USING ERRCODE = '42501';
+  END IF;
+  IF OLD.vatsim_pilotrating IS NOT NULL AND NEW.vatsim_pilotrating IS DISTINCT FROM OLD.vatsim_pilotrating THEN
+    RAISE EXCEPTION 'VATSIM details are locked. Contact support to change them.' USING ERRCODE = '42501';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS prevent_profile_identity_changes_trigger ON public.profiles;
+CREATE TRIGGER prevent_profile_identity_changes_trigger
+BEFORE UPDATE ON public.profiles
+FOR EACH ROW
+EXECUTE PROCEDURE public.prevent_profile_identity_changes();
 
 CREATE TABLE IF NOT EXISTS public.events (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

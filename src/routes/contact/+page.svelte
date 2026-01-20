@@ -41,19 +41,21 @@
 </script>
 
 <main class="flex flex-col">
-    <section class="min-h-dvh">
-        <div class="container mx-auto px-4 py-20">
-            <div class="flex flex-col items-center justify-center min-h-[80vh]">
-                <h1 class="mb-4 text-4xl font-bold text-white md:text-5xl">Contact Us</h1>
-                <p class="max-w-lg text-gray-300 text-center mb-4">
-                    Have a question, inquiry, or partnership proposal? Send us a message and we'll get back to you.
-                </p>
-                <div class="flex items-center gap-2 text-sm text-gray-400 mb-8 bg-black/30 px-4 py-2 rounded-full backdrop-blur-sm border border-white/10">
-                    <Mail size={16} />
-                    <a href="mailto:ermc@realkenan.dev" class="hover:text-white transition-colors">ermc@realkenan.dev</a>
+    <section>
+        <div class="container mx-auto px-4 py-10">
+            <div class="grid gap-8 md:grid-cols-2 md:items-start">
+                <div class="space-y-4">
+                    <h1 class="text-4xl font-bold text-white md:text-5xl">Contact Us</h1>
+                    <p class="max-w-lg text-gray-300">
+                        Have a question, inquiry, or partnership proposal? Send us a message and we'll get back to you.
+                    </p>
+                    <div class="inline-flex items-center gap-2 text-sm text-gray-400 bg-black/30 px-4 py-2 rounded-full backdrop-blur-sm border border-white/10">
+                        <Mail size={16} />
+                        <a href="mailto:ermc@realkenan.dev" class="hover:text-white transition-colors">ermc@realkenan.dev</a>
+                    </div>
                 </div>
 
-                <div class="card w-full max-w-lg bg-base-100 shadow-xl">
+                <div class="card w-full bg-base-100 shadow-xl">
                     <div class="card-body">
                         {#if form?.success}
                             <div role="alert" class="alert alert-success mb-4">
