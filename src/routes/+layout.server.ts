@@ -11,9 +11,18 @@ export const load: LayoutServerLoad = async ({ locals: { supabase, user } }) => 
     // Sync with VATSIM (ensures DB is up to date)
     // We catch errors so the site doesn't crash if VATSIM API is down
     try {
-        await syncEvents(supabase);
+        // Run sync in background or with a timeout to prevent blocking the entire site load
+        // Actually, for layout load, it's better to fire and forget if it takes too long,
+        // but we need the data. Let's rely on the fact that Vercel has timeouts.
+        // A better approach for production is a cron job, but for now let's wrap in a timeout race.
+        
+        // However, the 500 error is likely due to the fetch failing or Supabase issues.
+        // Let's make sure we catch errors inside syncEvents too (which we do).
+        
+        // Critical: Don't let sync fail the whole page load.
+        syncEvents(supabase).catch(err => console.error('Background sync failed:', err));
     } catch (e) {
-        console.error('Failed to sync VATSIM events:', e);
+        console.error('Failed to initiate VATSIM sync:', e);
     }
 
     // Fetch all events (manual + vatsim) from DB

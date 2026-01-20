@@ -38,25 +38,32 @@ export async function fetchVatsimEvents() {
 			throw new Error(`Failed to fetch events: ${response.statusText}`);
 		}
 
-		const data = await response.json();
-		const events: VatsimEvent[] = data.data || data;
+		const json = await response.json();
+        // The VATSIM API V2 structure can be { data: [...] } or just [...]
+        // Based on documentation, it should be { data: [...] } for v2/events/latest or similar,
+        // but v2/events might be paginated or different.
+        // Let's handle both cases safely.
+		const events: VatsimEvent[] = Array.isArray(json) ? json : (json.data || []);
 
 		// Filter for events that have at least one airport in our relevant list
-        // OR if the event description/title contains keywords like "Middle East", "Gulf", etc.
+		// OR if the event description/title contains keywords like "Middle East", "Gulf", etc.
 		const relevantEvents = events.filter((event) => {
-            // Check airports
+            // Safety check for airports array
+            if (!event.airports || !Array.isArray(event.airports)) return false;
+
+			// Check airports
 			const airportMatch = event.airports.some((a) => RELEVANT_AIRPORTS.includes(a.icao.toUpperCase()));
             
             // Check routes
-			const routeMatch = event.routes.some(
+			const routeMatch = event.routes && Array.isArray(event.routes) && event.routes.some(
 				(r) => RELEVANT_AIRPORTS.includes(r.departure.toUpperCase()) || RELEVANT_AIRPORTS.includes(r.arrival.toUpperCase())
 			);
 
             // Check title/desc keywords (backup) - Case Insensitive
-            const keywords = ['gulf', 'middle east', 'bahrain', 'kuwait', 'emirates', 'qatar', 'saudi', 'oman', 'iraq', 'jordan', 'lebanon'];
+            const keywords = ['gulf', 'middle east', 'bahrain', 'kuwait', 'emirates', 'qatar', 'saudi', 'oman', 'iraq', 'jordan', 'lebanon', 'jeddah', 'riyadh', 'doha', 'muscat', 'dubai', 'abu dhabi'];
             const textMatch = keywords.some(k => 
                 event.name.toLowerCase().includes(k) || 
-                event.description?.toLowerCase().includes(k)
+                (event.description && event.description.toLowerCase().includes(k))
             );
 
 			return airportMatch || routeMatch || textMatch;
@@ -138,7 +145,11 @@ export async function syncEvents(supabase: SupabaseClient) {
 
 	for (const event of events) {
         // Infer airports if API list is empty but title suggests a specific location
-        let inferredAirports = event.airports.map((a) => a.icao);
+        let inferredAirports: string[] = [];
+        if (event.airports && Array.isArray(event.airports)) {
+            inferredAirports = event.airports.map((a) => a.icao);
+        }
+        
         if (inferredAirports.length === 0) {
              const title = event.name.toLowerCase();
              const desc = event.description?.toLowerCase() || '';
