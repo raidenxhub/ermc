@@ -11,13 +11,20 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 		throw redirect(303, '/dashboard');
 	}
 
-	const { data: events } = await supabase
-		.from('events')
-		.select('*')
-		.order('start_time', { ascending: false });
+    // Fix: Wrap event fetch in try/catch to avoid 500s
+    let events = [];
+    try {
+        const { data } = await supabase
+            .from('events')
+            .select('*')
+            .order('start_time', { ascending: false });
+        if (data) events = data;
+    } catch (e) {
+        console.error('Events mgmt fetch error:', e);
+    }
 
 	return {
-		events: events || []
+		events
 	};
 };
 

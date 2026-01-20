@@ -3,7 +3,6 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals: { user, supabase }, url }) => {
 	// If user is already logged in, redirect to dashboard
-    // NOTE: User requested to REMOVE auto-redirect from / to /dashboard
 	// if (user) {
 	// 	throw redirect(303, '/dashboard');
 	// }

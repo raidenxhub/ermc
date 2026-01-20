@@ -9,8 +9,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) throw redirect(303, '/auth/login');
 
 	const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-
-	if (!profile || (profile.role !== 'staff' && profile.role !== 'admin')) {
+	if (!profile || (profile.role !== 'staff' && profile.role !== 'admin' && profile.role !== 'coordinator')) {
 		throw redirect(303, '/dashboard');
 	}
 	return {};
@@ -21,7 +20,7 @@ export const actions: Actions = {
 		if (!user) return fail(401, { message: 'Unauthorized' });
 
 		const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-		if (!profile || (profile.role !== 'staff' && profile.role !== 'admin')) {
+		if (!profile || (profile.role !== 'staff' && profile.role !== 'admin' && profile.role !== 'coordinator')) {
 			return fail(403, { message: 'Forbidden' });
 		}
 
