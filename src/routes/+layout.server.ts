@@ -20,18 +20,31 @@ export const load: LayoutServerLoad = async ({ locals: { supabase, user } }) => 
         // Let's make sure we catch errors inside syncEvents too (which we do).
         
         // Critical: Don't let sync fail the whole page load.
+        // NOTE: On serverless (Vercel), background tasks might be killed when response is sent.
+        // But waiting for it causes 500s if it times out. 
+        // For now, we accept it might not finish every time on serverless, but at least it won't crash.
+        // Ideally we use a cron job.
         syncEvents(supabase).catch(err => console.error('Background sync failed:', err));
     } catch (e) {
         console.error('Failed to initiate VATSIM sync:', e);
     }
 
     // Fetch all events (manual + vatsim) from DB
-    const { data: events } = await supabase
-        .from('events')
-        .select('*')
-        .order('start_time', { ascending: true })
-        .gte('end_time', new Date().toISOString()); // Only future/ongoing events? User didn't specify, but usually best. 
-        // Actually user wants "events", maybe all? Let's stick to future/ongoing for the global list to avoid clutter.
+    let events = [];
+    try {
+        const { data, error } = await supabase
+            .from('events')
+            .select('*')
+            .order('start_time', { ascending: true })
+            .gte('end_time', new Date().toISOString());
+        
+        if (!error && data) {
+            events = data;
+        }
+    } catch (err) {
+        console.error('DB Fetch Error:', err);
+        // Don't crash, just return empty events
+    }
     
     // Merge auth user with profile data so navbar works correctly
 	return { 
