@@ -3,9 +3,19 @@ import { syncEvents } from '$lib/server/vatsim';
 
 export const load: LayoutServerLoad = async ({ locals: { supabase, user } }) => {
     let profile = null;
+    
+    // Wrap profile fetch in try/catch to prevent 500s if DB fails
     if (user) {
-        const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-        profile = data;
+        try {
+            const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+            if (!error && data) {
+                profile = data;
+            } else if (error) {
+                console.error('Layout profile fetch error:', error);
+            }
+        } catch (err) {
+            console.error('Layout profile fetch crash:', err);
+        }
     }
 
     // Sync with VATSIM (ensures DB is up to date)
