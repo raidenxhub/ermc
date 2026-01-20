@@ -1,3 +1,4 @@
+<script lang="ts">
     import type { PageData } from './$types';
     import { format, formatDistanceToNow } from 'date-fns';
     import { CalendarRange, MapPin, Clock } from 'lucide-svelte';
