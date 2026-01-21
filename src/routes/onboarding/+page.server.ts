@@ -143,6 +143,10 @@ export const actions: Actions = {
 
 			throw redirect(303, '/dashboard');
 		} catch (e) {
+			if (typeof e === 'object' && e && 'status' in e) {
+				const status = Number((e as { status?: number }).status);
+				if (Number.isFinite(status) && status >= 300 && status < 400) throw e;
+			}
 			console.error('Onboarding registration failed:', e);
 			return fail(500, { message: 'Registration failed. Please try again.' });
 		}
@@ -165,46 +169,9 @@ export const actions: Actions = {
 
 		throw redirect(303, '/');
 	},
-	cancelRegistration: async ({ request, locals: { supabase, user } }) => {
+	cancelRegistration: async ({ locals: { supabase, user } }) => {
 		if (!user) throw redirect(303, '/');
 		if (!supabase) throw redirect(303, '/');
-
-		try {
-			const formData = await request.formData();
-			const cancel_reason = (formData.get('cancel_reason') as string) || '';
-			const cancel_help = (formData.get('cancel_help') as string) || '';
-			const cancel_cid_experience = (formData.get('cancel_cid_experience') as string) || '';
-			const cancel_return_likelihood = (formData.get('cancel_return_likelihood') as string) || '';
-
-			const webhookUrl = privateEnv.CONTACT_DISCORD_WEBHOOK_URL;
-			if (webhookUrl && (cancel_reason || cancel_help || cancel_cid_experience || cancel_return_likelihood)) {
-				const email = user.email || user.user_metadata?.email || null;
-				await fetch(webhookUrl, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						embeds: [
-							{
-								title: 'Onboarding cancelled',
-								color: 15158332,
-								fields: [
-									{ name: 'User ID', value: user.id, inline: false },
-									{ name: 'Email', value: typeof email === 'string' ? email : 'unknown', inline: false },
-									{ name: 'Why cancelling', value: cancel_reason || 'n/a', inline: false },
-									{ name: 'What would help', value: cancel_help || 'n/a', inline: false },
-									{ name: 'CID verification', value: cancel_cid_experience || 'n/a', inline: false },
-									{ name: 'Try again later', value: cancel_return_likelihood || 'n/a', inline: false }
-								],
-								footer: { text: 'ERMC Onboarding' },
-								timestamp: new Date().toISOString()
-							}
-						]
-					})
-				});
-			}
-		} catch (e) {
-			console.error('Cancel feedback webhook failed:', e);
-		}
 
 		let deletionOk = true;
 		try {
@@ -223,6 +190,6 @@ export const actions: Actions = {
 		if (!deletionOk) {
 			throw redirect(303, '/?error=Account%20cancellation%20failed.%20Please%20contact%20support.');
 		}
-		throw redirect(303, '/');
+		throw redirect(303, '/?cancelled=1');
 	}
 };

@@ -22,7 +22,7 @@
   $: hideNavbar = $page.url.pathname.startsWith('/auth') || $page.url.pathname.startsWith('/onboarding') || $page.url.pathname.startsWith('/oauth') || $page.url.pathname.startsWith('/access-key');
 
   const titleForPath = (pathname: string) => {
-    if (pathname === '/') return 'ERMC — Team rostering re-imagined';
+    if (pathname === '/') return 'ERMC — Rostering Re-Imagined';
     if (pathname.startsWith('/onboarding')) return 'ERMC — Onboarding';
     if (pathname.startsWith('/dashboard')) return 'ERMC — Dashboard';
     if (pathname.startsWith('/rostering/events/')) return 'ERMC — Event Rostering';
