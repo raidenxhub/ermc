@@ -2,6 +2,18 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { env as privateEnv } from '$env/dynamic/private';
 import { fetchVatsimMember, ratingToShortLong } from '$lib/server/vatsimMember';
+import { createAdminClient } from '$lib/server/supabaseAdmin';
+
+const deleteUserCompletely = async (userId: string) => {
+	const admin = createAdminClient();
+	const { error: profileDeleteError } = await admin.from('profiles').delete().eq('id', userId);
+	if (profileDeleteError) console.error('Profile delete failed during rejected-subdivision deletion:', profileDeleteError);
+	try {
+		await admin.auth.admin.deleteUser(userId);
+	} catch (e) {
+		console.error('Auth delete failed during rejected-subdivision deletion:', e);
+	}
+};
 
 export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) {
@@ -60,6 +72,26 @@ export const actions: Actions = {
 			return fail(400, { message: 'Unable to verify your CID with VATSIM right now. Please try again shortly.' });
 		}
 
+		const vatsimSubdivisionId = member.subdivision_id != null ? String(member.subdivision_id).trim() : '';
+		if (vatsimSubdivisionId.toUpperCase() !== 'KHLJ') {
+			const displaySubdivision = vatsimSubdivisionId || 'unknown';
+			try {
+				await supabase.auth.signOut();
+			} catch (e) {
+				console.error('Sign out failed during rejected-subdivision deletion:', e);
+			}
+			try {
+				await deleteUserCompletely(user.id);
+			} catch (e) {
+				console.error('Delete failed during rejected-subdivision deletion:', e);
+			}
+			return fail(400, {
+				message: `We do not currently offer our services to your VATSIM subdivision (${displaySubdivision}). ERMC is only available for KHLJ at this time.`,
+				rejectedSubdivision: true,
+				vatsimSubdivisionId
+			});
+		}
+
 		const rating = Number(member.rating);
 		if (!Number.isFinite(rating) || rating <= 0) return fail(400, { message: 'Unable to verify your VATSIM rating.' });
 		if (rating === 1) return fail(400, { message: 'Observer (OBS) is not eligible to control. Please select S1 or higher.' });
@@ -108,5 +140,23 @@ export const actions: Actions = {
 		}
 
 		throw redirect(303, '/dashboard');
+	},
+	deleteRejectedAccount: async ({ locals: { supabase, user } }) => {
+		if (!user) throw redirect(303, '/');
+		if (!supabase) throw redirect(303, '/');
+
+		try {
+			await supabase.auth.signOut();
+		} catch (e) {
+			console.error('Sign out failed during rejected-subdivision deletion:', e);
+		}
+
+		try {
+			await deleteUserCompletely(user.id);
+		} catch (e) {
+			console.error('Delete failed during rejected-subdivision deletion:', e);
+		}
+
+		throw redirect(303, '/');
 	}
 };

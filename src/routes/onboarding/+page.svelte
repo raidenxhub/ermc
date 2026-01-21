@@ -23,7 +23,37 @@
     let showNameInput = false;
     let isStaffChecked = false;
     let positionValue = '';
+    let rejectModalShown = false;
+    let deletionTriggered = false;
     type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
+
+    const triggerRejectedAccountDeletion = () => {
+        if (!browser || deletionTriggered) return;
+        deletionTriggered = true;
+
+        const url = '/onboarding?/deleteRejectedAccount';
+        const body = new URLSearchParams().toString();
+
+        try {
+            const blob = new Blob([body], { type: 'application/x-www-form-urlencoded' });
+            if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+                navigator.sendBeacon(url, blob);
+            }
+        } catch {
+            return;
+        }
+
+        try {
+            void fetch(url, {
+                method: 'POST',
+                headers: { 'content-type': 'application/x-www-form-urlencoded' },
+                body,
+                keepalive: true
+            });
+        } catch {
+            return;
+        }
+    };
 
     const verifyCid = async (cid: string) => {
         if (!browser) return;
@@ -55,11 +85,44 @@
                 cidVerifyMessage = payload?.message || 'Unable to verify CID right now.';
                 cidVerifiedValue = '';
                 cidMember = null;
+                if (res.status === 403) {
+                    triggerRejectedAccountDeletion();
+                    if (!rejectModalShown) {
+                        rejectModalShown = true;
+                        await confirm({
+                            title: 'Subdivision not supported',
+                            message: cidVerifyMessage + '\n\nYour account will now be deleted and you will be returned to the homepage.',
+                            confirmText: 'Return to homepage',
+                            showCancel: false,
+                            dismissible: false
+                        });
+                        await goto('/');
+                    }
+                }
                 return;
             }
             cidVerifyState = 'success';
             cidVerifiedValue = trimmed;
             cidMember = payload.member;
+            const vatsimSubdivisionId = typeof payload?.member?.subdivision_id === 'string' ? payload.member.subdivision_id.trim() : '';
+            if (vatsimSubdivisionId.toUpperCase() !== 'KHLJ') {
+                triggerRejectedAccountDeletion();
+                cidVerifyState = 'error';
+                cidVerifyMessage = `We do not currently offer our services to your VATSIM subdivision (${vatsimSubdivisionId || 'unknown'}). ERMC is only available for KHLJ at this time.`;
+                cidVerifiedValue = '';
+                if (!rejectModalShown) {
+                    rejectModalShown = true;
+                    await confirm({
+                        title: 'Subdivision not supported',
+                        message: cidVerifyMessage + '\n\nYour account will now be deleted and you will be returned to the homepage.',
+                        confirmText: 'Return to homepage',
+                        showCancel: false,
+                        dismissible: false
+                    });
+                    await goto('/');
+                }
+                return;
+            }
             const nameFromCid = typeof payload?.member?.name === 'string' ? payload.member.name.trim() : '';
             if (nameFromCid && !nameTouched) {
                 fullNameValue = nameFromCid;
@@ -76,6 +139,27 @@
             showNameInput = false;
         }
     };
+
+    $: if (!browser) {
+        rejectModalShown = false;
+        deletionTriggered = false;
+    } else if ((form as any)?.rejectedSubdivision && !rejectModalShown) {
+        triggerRejectedAccountDeletion();
+        rejectModalShown = true;
+        const vatsimSubdivisionId = (form as any)?.vatsimSubdivisionId ? String((form as any).vatsimSubdivisionId) : '';
+        const msg =
+            typeof form?.message === 'string' && form.message.trim().length > 0
+                ? form.message
+                : `We do not currently offer our services to your VATSIM subdivision (${vatsimSubdivisionId || 'unknown'}). ERMC is only available for KHLJ at this time.`;
+        confirm({
+            title: 'Subdivision not supported',
+            message: msg + '\n\nYour account will now be deleted and you will be returned to the homepage.',
+            confirmText: 'Return to homepage',
+            showCancel: false,
+            dismissible: false
+        }).then(() => goto('/'));
+    }
+
 
     const onCidInput = (value: string) => {
         cidValue = value;
@@ -224,7 +308,7 @@
                         </div>
 
                         <div>
-                            <div class="label"><span class="label-text">VATSIM Name</span></div>
+                            <div class="label"><span class="label-text">Name</span></div>
                             {#if cidVerifyState === 'success' && cidMember?.name && !showNameInput}
                                 <input type="hidden" name="full_name" value={fullNameValue} />
                                 <div class="rounded-lg border bg-base-200 px-4 py-3 text-sm flex items-center justify-between gap-3">
@@ -243,7 +327,7 @@
                                     on:input={() => (nameTouched = true)}
                                 />
                                 <div class="mt-2 text-xs text-base-content/70">
-                                    If we can’t fetch your name from VATSIM, enter it manually.
+                                    If we can’t fetch your name, enter it manually.
                                 </div>
                             {/if}
                         </div>
@@ -284,7 +368,16 @@
 
                     <div class="form-control">
                         <label class="label cursor-pointer justify-start gap-4">
-                            <input type="checkbox" name="is_staff" class="checkbox checkbox-primary" bind:checked={isStaffChecked} on:change={() => (positionValue = (data?.profile?.position as string) || '')} />
+                            <input
+                                type="checkbox"
+                                name="is_staff"
+                                class="checkbox checkbox-primary"
+                                bind:checked={isStaffChecked}
+                                on:change={() => {
+                                    const previous = (data?.profile?.position as string) || '';
+                                    positionValue = previous || positionValue || 'KHLJ Staff';
+                                }}
+                            />
                             <span class="label-text font-medium">I am a Staff member or Coordinator</span>
                         </label>
                     </div>

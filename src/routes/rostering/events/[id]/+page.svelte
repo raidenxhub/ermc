@@ -331,7 +331,7 @@
                             >
                                 <input type="hidden" name="roster_entry_id" value={entry.id} />
                                 <button
-                                  class="btn ermc-state-btn btn-sm {getFormState(`claim_primary:${entry.id}`) === 'success' ? 'ermc-success-btn' : getFormState(`claim_primary:${entry.id}`) === 'error' ? 'btn-error' : 'btn-primary'}"
+                                  class="btn ermc-state-btn btn-sm whitespace-nowrap {getFormState(`claim_primary:${entry.id}`) === 'success' ? 'ermc-success-btn' : getFormState(`claim_primary:${entry.id}`) === 'error' ? 'btn-error' : 'btn-primary'}"
                                   disabled={getFormState(`claim_primary:${entry.id}`) === 'loading' || getFormState(`claim_primary:${entry.id}`) === 'success'}
                                 >
                                   {#if getFormState(`claim_primary:${entry.id}`) === 'loading'}
@@ -356,7 +356,7 @@
                             >
                                 <input type="hidden" name="roster_entry_id" value={entry.id} />
                                 <button
-                                  class="btn ermc-state-btn btn-sm {getFormState(`claim_standby:${entry.id}`) === 'success' ? 'ermc-success-btn' : getFormState(`claim_standby:${entry.id}`) === 'error' ? 'btn-error' : 'btn-outline'}"
+                                  class="btn ermc-state-btn btn-sm whitespace-nowrap {getFormState(`claim_standby:${entry.id}`) === 'success' ? 'ermc-success-btn' : getFormState(`claim_standby:${entry.id}`) === 'error' ? 'btn-error' : 'btn-outline'}"
                                   disabled={getFormState(`claim_standby:${entry.id}`) === 'loading' || getFormState(`claim_standby:${entry.id}`) === 'success'}
                                 >
                                   {#if getFormState(`claim_standby:${entry.id}`) === 'loading'}

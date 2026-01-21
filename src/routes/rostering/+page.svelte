@@ -3,6 +3,7 @@
     import { format } from 'date-fns';
     import { CalendarRange, MapPin, Clock, Check } from 'lucide-svelte';
     import { eventsSyncing } from '$lib/stores/eventsSync';
+    import { goto } from '$app/navigation';
     
     export let data: PageData;
     // Assuming data.events is passed from +page.server.ts
@@ -37,6 +38,15 @@
             .replace(/\s+/g, ' ')
             .trim();
     }
+
+    let navToEventId: string | null = null;
+    const navToEvent = async (e: Event, eventId: string) => {
+        e.preventDefault();
+        if (navToEventId) return;
+        navToEventId = eventId;
+        await goto(`/rostering/events/${eventId}`);
+        navToEventId = null;
+    };
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -124,9 +134,12 @@
                             href="/rostering/events/{event.id}"
                             class="btn {bookedEventIds.has(event.id) ? 'ermc-state-btn ermc-success-btn' : 'btn-primary'} w-full group-hover:btn-active {event.status === 'cancelled' ? 'btn-disabled' : ''}"
                             aria-disabled={event.status === 'cancelled'}
+                            on:click={(e) => navToEvent(e, event.id)}
                         >
                             {#if event.status === 'cancelled'}
                                 Event Cancelled
+                            {:else if navToEventId === event.id}
+                                <span class="loader" style="transform: scale(0.375); transform-origin: center;"></span>
                             {:else if bookedEventIds.has(event.id)}
                                 <span class="inline-flex items-center gap-2"><Check size={18} /> Booked</span>
                             {:else}

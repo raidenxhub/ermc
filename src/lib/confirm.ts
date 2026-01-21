@@ -5,6 +5,8 @@ export type ConfirmOptions = {
 	message: string;
 	confirmText?: string;
 	cancelText?: string;
+	showCancel?: boolean;
+	dismissible?: boolean;
 };
 
 type ConfirmState = (ConfirmOptions & { resolve: (value: boolean) => void }) | null;
