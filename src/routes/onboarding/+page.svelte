@@ -233,6 +233,22 @@
         return confirm({ title: 'Confirm your CID', message, confirmText: 'Continue', cancelText: 'Cancel' });
     };
 
+    const handleCancelRegistration = async () => {
+        if (!browser) return;
+        if (!cancelRegistrationForm) return;
+        if (cancelState === 'loading' || cancelState === 'success') return;
+        
+        const ok = await confirm({
+            title: 'Cancel registration',
+            message: 'This will delete your account immediately.\n\nDo you want to continue?',
+            confirmText: 'Cancel registration',
+            cancelText: 'Keep account'
+        });
+        if (!ok) return;
+
+        cancelState = 'loading';
+        cancelRegistrationForm.requestSubmit();
+    };
     const useEnhanceOnboarding = (formEl: HTMLFormElement) => {
         if (!browser) return;
         const submit: SubmitFunction = async ({ cancel }) => {
@@ -312,22 +328,25 @@
         return enhance(formEl, submit);
     };
 
-    const handleCancelRegistration = async () => {
+    const useEnhanceCancelRegistration = (formEl: HTMLFormElement) => {
         if (!browser) return;
-        if (!cancelRegistrationForm) return;
-        if (cancelState === 'loading' || cancelState === 'success') return;
-        cancelState = 'loading';
-        const ok = await confirm({
-            title: 'Cancel registration',
-            message: 'This will delete your account immediately.\n\nDo you want to continue?',
-            confirmText: 'Cancel registration',
-            cancelText: 'Keep account'
-        });
-        if (!ok) {
-            cancelState = 'idle';
-            return;
-        }
-        cancelRegistrationForm.requestSubmit();
+        const submit: SubmitFunction = async ({ cancel: _ }) => {
+            return async ({ result, update }) => {
+                if (result.type === 'redirect') {
+                    cancelState = 'success';
+                    window.location.replace(result.location);
+                    return;
+                }
+                if (result.type === 'error' || result.type === 'failure') {
+                    cancelState = 'error';
+                    const msg = (result as any)?.data?.message || (result as any)?.error?.message || 'Cancellation failed.';
+                    toast.error(msg);
+                    setTimeout(() => (cancelState = 'idle'), 2000);
+                }
+                await update();
+            };
+        };
+        return enhance(formEl, submit);
     };
 </script>
 
@@ -546,7 +565,7 @@
                             {/if}
                         </button>
 					</form>
-                    <form method="POST" action="?/cancelRegistration" class="hidden" bind:this={cancelRegistrationForm}></form>
+                    <form method="POST" action="?/cancelRegistration" class="hidden" bind:this={cancelRegistrationForm} use:useEnhanceCancelRegistration></form>
 				</div>
 			</div>
 		</div>
