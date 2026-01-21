@@ -274,6 +274,7 @@
             }
             submitState = 'loading';
             return async ({ result, update }) => {
+                console.log('[Registration] Result:', result);
                 try {
                     const type = (result as any)?.type;
 
@@ -286,39 +287,22 @@
                         return;
                     }
 
+                    submitState = 'error';
+                    let errMsg = '';
+
                     if (type === 'error') {
-                    submitState = 'error';
-                    // Try to get message from error object or fallback to result.data or generic
-                    let errMsg = typeof (result as any)?.error?.message === 'string' ? String((result as any).error.message) : '';
-                    if (!errMsg && (result as any)?.data?.message) errMsg = (result as any).data.message;
-                    
-                    toast.error(errMsg || 'Registration failed. Please try again.');
-                    setTimeout(() => (submitState = 'idle'), 2000);
-                    return;
-                }
-
-                await update({ reset: false });
-
-                if (type === 'failure') {
-                    submitState = 'error';
-                    const message = (result as any).data?.message || 'Registration failed.';
-                    toast.error(message);
-                    setTimeout(() => (submitState = 'idle'), 2000);
-                    return;
-                }
-
-                    if (type === 'success') {
-                        submitState = 'success';
-                        clearDraft();
-                        await new Promise((r) => setTimeout(r, 450));
-                        window.location.replace('/dashboard');
-                        return;
+                        errMsg = typeof (result as any)?.error?.message === 'string' ? String((result as any).error.message) : '';
+                        if (!errMsg && (result as any)?.data?.message) errMsg = (result as any).data.message;
+                    } else if (type === 'failure') {
+                         errMsg = (result as any).data?.message || '';
                     }
 
-                    submitState = 'error';
-                    toast.error('Registration failed. Please try again.');
+                    toast.error(errMsg || `Registration failed. (${type})`);
                     setTimeout(() => (submitState = 'idle'), 2000);
-                } catch {
+                    
+                    await update({ reset: false });
+                } catch (e) {
+                    console.error('[Registration] Client error:', e);
                     submitState = 'error';
                     toast.error('Registration failed. Please try again.');
                     setTimeout(() => (submitState = 'idle'), 2000);
@@ -331,18 +315,26 @@
     const useEnhanceCancelRegistration = (formEl: HTMLFormElement) => {
         if (!browser) return;
         const submit: SubmitFunction = async ({ cancel: _ }) => {
+            cancelState = 'loading'; // Ensure state is loading when submission actually starts
             return async ({ result, update }) => {
+                console.log('[CancelRegistration] Result:', result);
                 if (result.type === 'redirect') {
                     cancelState = 'success';
                     window.location.replace(result.location);
                     return;
                 }
-                if (result.type === 'error' || result.type === 'failure') {
-                    cancelState = 'error';
-                    const msg = (result as any)?.data?.message || (result as any)?.error?.message || 'Cancellation failed.';
-                    toast.error(msg);
-                    setTimeout(() => (cancelState = 'idle'), 2000);
+                
+                cancelState = 'error';
+                let msg = 'Cancellation failed.';
+                
+                if (result.type === 'failure') {
+                    msg = (result.data as any)?.message || msg;
+                } else if (result.type === 'error') {
+                    msg = (result.error as any)?.message || msg;
                 }
+                
+                toast.error(msg);
+                setTimeout(() => (cancelState = 'idle'), 2000);
                 await update();
             };
         };
