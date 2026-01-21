@@ -274,16 +274,26 @@
             }
             submitState = 'loading';
             return async ({ result, update }) => {
-                console.log('[Registration] Result:', result);
+                console.log('[Registration] Raw result:', result);
+                
                 try {
-                    const type = (result as any)?.type;
-
+                    // Force type detection if missing (shouldn't happen with SvelteKit, but safety net)
+                    const type = (result as any)?.type || 'error'; 
+                    
                     if (type === 'redirect') {
                         submitState = 'success';
                         clearDraft();
                         const location = (result as { location: string }).location;
                         await new Promise((r) => setTimeout(r, 450));
                         window.location.replace(location);
+                        return;
+                    }
+
+                    if (type === 'success') {
+                        submitState = 'success';
+                        clearDraft();
+                        await new Promise((r) => setTimeout(r, 450));
+                        window.location.replace('/dashboard');
                         return;
                     }
 
@@ -302,8 +312,8 @@
 
                     // Final fallback if errMsg is still empty/undefined
                     if (!errMsg) {
-                        errMsg = `Unknown error (Type: ${type || 'undefined'})`;
-                        console.error('[Registration] Unknown error result:', result);
+                        errMsg = `Unknown error (Type: ${type})`;
+                        console.error('[Registration] Unknown error result structure:', result);
                     }
 
                     toast.error(errMsg);
