@@ -5,14 +5,18 @@ import { env as privateEnv } from '$env/dynamic/private';
 import { createClient } from '@supabase/supabase-js';
 import { sendWelcomeEmail } from '$lib/server/email';
 
-export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
+export const GET: RequestHandler = async ({ url, locals: { supabase }, cookies }) => {
 	const code = url.searchParams.get('code');
-	const sanitizeNext = (value: string | null) => {
+	const sanitizeNext = (value: string | null | undefined) => {
 		if (!value) return '/dashboard';
 		if (!value.startsWith('/')) return '/dashboard';
 		return value;
 	};
-	const next = sanitizeNext(url.searchParams.get('next'));
+	const nextFromCookie = cookies.get('oauth_next');
+	const next = sanitizeNext(url.searchParams.get('next') ?? nextFromCookie);
+	if (nextFromCookie) {
+		cookies.delete('oauth_next', { path: '/' });
+	}
 	if (!supabase) throw redirect(303, '/?error=Server%20configuration%20error');
 
 	if (code) {
