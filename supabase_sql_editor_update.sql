@@ -86,6 +86,7 @@ create table if not exists public.profiles (
   vatsim_subdivision_id text,
   vatsim_country text,
   vatsim_countystate text,
+  vatsim_pilotrating text,
   region text,
   division text,
   subdivision text,
@@ -296,6 +297,46 @@ create trigger roster_primary_claim_delete
 after delete on public.roster_claims
 for each row execute procedure public.apply_primary_claim();
 
+create or replace function public.promote_standby_on_primary_vacancy()
+returns trigger as $$
+declare
+  standby_claim record;
+begin
+  if (tg_op <> 'DELETE') then
+    return old;
+  end if;
+
+  if (old.type <> 'primary') then
+    return old;
+  end if;
+
+  select id, roster_entry_id, user_id
+    into standby_claim
+    from public.roster_claims
+   where roster_entry_id = old.roster_entry_id
+     and type = 'standby'
+   order by created_at asc
+   limit 1;
+
+  if standby_claim.id is null then
+    return old;
+  end if;
+
+  delete from public.roster_claims where id = standby_claim.id;
+  insert into public.roster_claims (roster_entry_id, user_id, type)
+  values (standby_claim.roster_entry_id, standby_claim.user_id, 'primary');
+
+  return old;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists roster_promote_standby_on_primary_delete on public.roster_claims;
+create trigger roster_promote_standby_on_primary_delete
+after delete on public.roster_claims
+for each row
+when (old.type = 'primary')
+execute procedure public.promote_standby_on_primary_vacancy();
+
 -- VATSIM deletion suppression
 create table if not exists public.vatsim_event_suppressions (
   vatsim_id integer primary key,
@@ -322,6 +363,20 @@ do $$ begin
     execute 'create policy "Anyone can submit contact requests" on public.contact_requests for insert with check (true)';
   end if;
 end $$;
+
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, email, name)
+  values (new.id, new.email, new.raw_user_meta_data->>'full_name');
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
 
 -- COORDINATION MESSAGES
 create table if not exists public.messages (

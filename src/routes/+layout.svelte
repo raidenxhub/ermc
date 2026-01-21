@@ -46,13 +46,6 @@
   $: pageTitle = titleForPath($page.url.pathname);
 
   const isOnboardingComplete = (u: any) => !!(u?.ermc_access_granted && u?.cid && u?.rating && u?.name);
-  const isProtectedPath = (pathname: string) =>
-    pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/rostering') ||
-    pathname.startsWith('/events') ||
-    pathname.startsWith('/coordination') ||
-    pathname.startsWith('/settings') ||
-    pathname.startsWith('/statistics');
 
   onMount(() => {
     if (browser) {
@@ -60,8 +53,13 @@
         if (!to) return;
         if (type !== 'link' && type !== 'popstate') return;
         const pathname = to.url.pathname;
-        const allow = pathname.startsWith('/api/') || pathname.startsWith('/_app/') || pathname.startsWith('/auth/') || pathname.startsWith('/oauth/') || pathname.startsWith('/onboarding');
-        if (!isProtectedPath(pathname) || allow) return;
+        const allow =
+          pathname.startsWith('/api/') ||
+          pathname.startsWith('/_app/') ||
+          pathname.startsWith('/auth/') ||
+          pathname.startsWith('/oauth/') ||
+          pathname.startsWith('/onboarding');
+        if (allow) return;
         if (user && !isOnboardingComplete(user)) {
           cancel();
           toast.warning('Complete your onboarding before attempting to access other pages.');

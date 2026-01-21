@@ -22,9 +22,9 @@ export const actions: Actions = {
 		if (!user) return fail(401, { message: 'Unauthorized' });
 		if (!supabase) return fail(500, { message: 'Server configuration error' });
 
-		const serviceRole = privateEnv.SUPABASE_SECRET_KEY;
+		const serviceRole = privateEnv.SUPABASE_SERVICE_ROLE;
 		if (!serviceRole) {
-			console.error('Missing SUPABASE_SECRET_KEY');
+			console.error('Missing SUPABASE_SERVICE_ROLE');
 			return fail(500, { message: 'Server configuration error' });
 		}
 

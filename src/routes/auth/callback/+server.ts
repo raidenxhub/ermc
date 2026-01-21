@@ -49,9 +49,9 @@ export const GET: RequestHandler = async ({ url, locals: { supabase }, cookies }
 
 			// Upsert profile using service role with Discord data
 			if (user) {
-				const serviceRole = privateEnv.SUPABASE_SECRET_KEY;
+				const serviceRole = privateEnv.SUPABASE_SERVICE_ROLE;
 				if (!serviceRole) {
-					console.error('Missing SUPABASE_SECRET_KEY');
+					console.error('Missing SUPABASE_SERVICE_ROLE');
 					throw redirect(303, '/');
 				}
 				const supabaseUrl = privateEnv.PUBLIC_SUPABASE_URL || publicEnv.PUBLIC_SUPABASE_URL;

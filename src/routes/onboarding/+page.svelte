@@ -28,6 +28,12 @@
     let deletionTriggered = false;
     let draftSaveTimer: number | null = null;
     let cancelRegistrationForm: HTMLFormElement | null = null;
+    let cancelFeedbackDialog: HTMLDialogElement | null = null;
+    let cancelFeedbackArmed = false;
+    let cancelReason = '';
+    let cancelHelp = '';
+    let cancelCidExperience = '';
+    let cancelReturnLikelihood = '';
     type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
 
     const draftKey = () => `ermc:onboardingDraft:${String(data?.user?.id || 'anon')}`;
@@ -267,6 +273,13 @@
                     return;
                 }
 
+                if (result.type === 'error') {
+                    submitState = 'error';
+                    toast.error('Registration failed. Please try again.');
+                    setTimeout(() => (submitState = 'idle'), 2000);
+                    return;
+                }
+
                 await update({ reset: false });
 
                 if (result.type === 'failure') {
@@ -274,6 +287,14 @@
                     const message = (result as any).data?.message || 'Registration failed.';
                     toast.error(message);
                     setTimeout(() => (submitState = 'idle'), 2000);
+                    return;
+                }
+
+                if (result.type === 'success') {
+                    submitState = 'success';
+                    clearDraft();
+                    await new Promise((r) => setTimeout(r, 1100));
+                    window.location.replace('/dashboard');
                     return;
                 }
 
@@ -286,37 +307,76 @@
     const useEnhanceCancelRegistration = (formEl: HTMLFormElement) => {
         if (!browser) return;
         const submit: SubmitFunction = async ({ cancel }) => {
-            cancelState = 'loading';
-            const ok = await confirm({
-                title: 'Cancel registration',
-                message:
-                    'This will delete your account immediately.\n\nYour data will be permanently removed within 24 hours.\n\nDo you want to continue?',
-                confirmText: 'Cancel registration',
-                cancelText: 'Keep account'
-            });
-            if (!ok) {
+            if (!cancelFeedbackArmed) {
                 cancel();
+                cancelState = 'loading';
+                const ok = await confirm({
+                    title: 'Cancel registration',
+                    message:
+                        'This will delete your account immediately.\n\nYour data will be permanently removed within 24 hours.\n\nDo you want to continue?',
+                    confirmText: 'Continue',
+                    cancelText: 'Keep account'
+                });
+                if (!ok) {
+                    cancelState = 'idle';
+                    return;
+                }
                 cancelState = 'idle';
+                cancelFeedbackDialog?.showModal();
                 return;
             }
+
+            cancelFeedbackArmed = false;
             cancelState = 'loading';
             return async ({ result, update }) => {
                 if (result.type === 'redirect') {
                     cancelState = 'success';
                     clearDraft();
+                    const location = (result as { location: string }).location || '/';
+                    const target = location.includes('?') ? `${location}&_r=${Date.now()}` : `${location}?_r=${Date.now()}`;
                     await update({ reset: true });
-                    await new Promise((r) => setTimeout(r, 450));
-                    forceReloadHome();
+                    await new Promise((r) => setTimeout(r, 300));
+                    window.location.replace(target);
                     return;
                 }
+
+                if (result.type === 'error') {
+                    await update({ reset: false });
+                    cancelState = 'error';
+                    toast.error('Failed to cancel registration. Please try again.');
+                    setTimeout(() => (cancelState = 'idle'), 2000);
+                    return;
+                }
+
                 await update({ reset: false });
-                cancelState = 'error';
-                const message = (result as any).data?.message || 'Failed to cancel registration.';
-                toast.error(message);
-                setTimeout(() => (cancelState = 'idle'), 2000);
+
+                if (result.type === 'failure') {
+                    cancelState = 'error';
+                    const message = (result as any).data?.message || 'Failed to cancel registration.';
+                    toast.error(message);
+                    setTimeout(() => (cancelState = 'idle'), 2000);
+                    return;
+                }
+
+                if (result.type === 'success') {
+                    cancelState = 'success';
+                    clearDraft();
+                    await new Promise((r) => setTimeout(r, 300));
+                    window.location.replace(`/?_r=${Date.now()}`);
+                    return;
+                }
+
+                cancelState = 'idle';
             };
         };
         return enhance(formEl, submit);
+    };
+
+    const submitCancelFeedback = () => {
+        if (!cancelReason || !cancelHelp || !cancelCidExperience || !cancelReturnLikelihood) return;
+        cancelFeedbackArmed = true;
+        cancelFeedbackDialog?.close();
+        cancelRegistrationForm?.requestSubmit();
     };
 </script>
 
@@ -535,9 +595,82 @@
                             {/if}
                         </button>
 					</form>
-                    <form method="POST" action="?/cancelRegistration" class="hidden" bind:this={cancelRegistrationForm} use:useEnhanceCancelRegistration></form>
+                    <form method="POST" action="?/cancelRegistration" class="hidden" bind:this={cancelRegistrationForm} use:useEnhanceCancelRegistration>
+                        <input type="hidden" name="cancel_reason" value={cancelReason} />
+                        <input type="hidden" name="cancel_help" value={cancelHelp} />
+                        <input type="hidden" name="cancel_cid_experience" value={cancelCidExperience} />
+                        <input type="hidden" name="cancel_return_likelihood" value={cancelReturnLikelihood} />
+                    </form>
 				</div>
 			</div>
 		</div>
 	</section>
 </main>
+
+<dialog class="modal" bind:this={cancelFeedbackDialog}>
+    <div class="modal-box max-w-2xl">
+        <h3 class="text-lg font-bold">Quick feedback (optional, no typing)</h3>
+        <p class="mt-1 text-sm text-base-content/70">Answer a few quick questions so we can improve, then we’ll cancel your registration.</p>
+
+        <div class="mt-6 space-y-6">
+            <div>
+                <div class="text-sm font-semibold">Why are you cancelling?</div>
+                <div class="mt-2 grid gap-2">
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_reason" bind:group={cancelReason} value="Just browsing / not ready" /><span class="label-text">Just browsing / not ready</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_reason" bind:group={cancelReason} value="Access key / invite issues" /><span class="label-text">Access key / invite issues</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_reason" bind:group={cancelReason} value="CID verification problems" /><span class="label-text">CID verification problems</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_reason" bind:group={cancelReason} value="Onboarding felt confusing" /><span class="label-text">Onboarding felt confusing</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_reason" bind:group={cancelReason} value="Privacy / data concerns" /><span class="label-text">Privacy / data concerns</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_reason" bind:group={cancelReason} value="Other (not listed)" /><span class="label-text">Other (not listed)</span></label>
+                </div>
+            </div>
+
+            <div>
+                <div class="text-sm font-semibold">What would most help you continue?</div>
+                <div class="mt-2 grid gap-2">
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_help" bind:group={cancelHelp} value="Remove access key requirement" /><span class="label-text">Remove access key requirement</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_help" bind:group={cancelHelp} value="Clearer onboarding instructions" /><span class="label-text">Clearer onboarding instructions</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_help" bind:group={cancelHelp} value="Fewer steps / faster onboarding" /><span class="label-text">Fewer steps / faster onboarding</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_help" bind:group={cancelHelp} value="Fix CID verification reliability" /><span class="label-text">Fix CID verification reliability</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_help" bind:group={cancelHelp} value="Nothing / I’m not interested" /><span class="label-text">Nothing / I’m not interested</span></label>
+                </div>
+            </div>
+
+            <div>
+                <div class="text-sm font-semibold">How was CID verification?</div>
+                <div class="mt-2 grid gap-2">
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_cid" bind:group={cancelCidExperience} value="Worked instantly" /><span class="label-text">Worked instantly</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_cid" bind:group={cancelCidExperience} value="Slow" /><span class="label-text">Slow</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_cid" bind:group={cancelCidExperience} value="Failed / error" /><span class="label-text">Failed / error</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_cid" bind:group={cancelCidExperience} value="Didn’t understand what to do" /><span class="label-text">Didn’t understand what to do</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_cid" bind:group={cancelCidExperience} value="N/A" /><span class="label-text">N/A</span></label>
+                </div>
+            </div>
+
+            <div>
+                <div class="text-sm font-semibold">Would you try again later?</div>
+                <div class="mt-2 grid gap-2">
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_return" bind:group={cancelReturnLikelihood} value="Very likely" /><span class="label-text">Very likely</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_return" bind:group={cancelReturnLikelihood} value="Likely" /><span class="label-text">Likely</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_return" bind:group={cancelReturnLikelihood} value="Not sure" /><span class="label-text">Not sure</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_return" bind:group={cancelReturnLikelihood} value="Unlikely" /><span class="label-text">Unlikely</span></label>
+                    <label class="label cursor-pointer justify-start gap-3"><input type="radio" class="radio radio-primary" name="q_return" bind:group={cancelReturnLikelihood} value="Never" /><span class="label-text">Never</span></label>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-action">
+            <button type="button" class="btn btn-ghost" on:click={() => cancelFeedbackDialog?.close()} disabled={cancelState === 'loading'}>Back</button>
+            <button type="button" class="btn btn-error" on:click={submitCancelFeedback} disabled={!cancelReason || !cancelHelp || !cancelCidExperience || !cancelReturnLikelihood || cancelState === 'loading'}>
+                {#if cancelState === 'loading'}
+                    <span class="loader" style="transform: scale(0.5); transform-origin: center;"></span>
+                {:else}
+                    Submit & cancel registration
+                {/if}
+            </button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>

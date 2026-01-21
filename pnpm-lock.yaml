@@ -30,6 +30,9 @@ importers:
         specifier: ^3.24.1
         version: 3.24.1
     devDependencies:
+      '@eslint/js':
+        specifier: ^9.15.0
+        version: 9.15.0
       '@sveltejs/adapter-auto':
         specifier: ^3.3.1
         version: 3.3.1(@sveltejs/kit@2.27.0(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.37.3)(vite@5.4.11(@types/node@22.17.0)))(svelte@5.37.3)(vite@5.4.11(@types/node@22.17.0)))
@@ -2237,6 +2240,7 @@ packages:
   tar@7.4.3:
     resolution: {integrity: sha512-5S7Va8hKfV7W5U6g3aYxXmlPoZVAwUMy9AOKyF2fVuZa2UD3qZjg578OrLRt8PcNN1PleVaL/5/yYATNL0ICUw==}
     engines: {node: '>=18'}
+    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exhorbitant rates) by contacting i@izs.me
 
   thenify-all@1.6.0:
     resolution: {integrity: sha512-RNxQH/qI8/t3thXJDwcstUO4zeqo64+Uy/+sNVRBx4Xn2OX+OZ9oP+iJnNFqplFra2ZUVeKCSa2oVWi3T4uVmA==}
