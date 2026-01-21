@@ -2,10 +2,18 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { env as privateEnv } from '$env/dynamic/private';
 import { fetchVatsimMember, ratingToShortLong } from '$lib/server/vatsimMember';
-<<<<<<< HEAD
 import { createAdminClient } from '$lib/server/supabaseAdmin';
-=======
->>>>>>> parent of 678cf79 (Polish confirmations, enforce KHLJ-only VATSIM, and improve UI feedback)
+
+const deleteUserCompletely = async (userId: string) => {
+	const admin = createAdminClient();
+	const { error: profileDeleteError } = await admin.from('profiles').delete().eq('id', userId);
+	if (profileDeleteError) console.error('Profile delete failed during rejected-subdivision deletion:', profileDeleteError);
+	try {
+		await admin.auth.admin.deleteUser(userId);
+	} catch (e) {
+		console.error('Auth delete failed during rejected-subdivision deletion:', e);
+	}
+};
 
 export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 	if (!user) {
@@ -114,6 +122,23 @@ export const actions: Actions = {
 		}
 
 		throw redirect(303, '/dashboard');
+	},
+	deleteRejectedAccount: async ({ locals: { supabase, user } }) => {
+		if (!user) throw redirect(303, '/');
+		if (!supabase) throw redirect(303, '/');
+
+		try {
+			await supabase.auth.signOut();
+		} catch (e) {
+			console.error('Sign out failed during rejected-subdivision deletion:', e);
+		}
+
+		try {
+			await deleteUserCompletely(user.id);
+		} catch (e) {
+			console.error('Delete failed during rejected-subdivision deletion:', e);
+		}
+
+		throw redirect(303, '/');
 	}
 };
->>>>>>> parent of 678cf79 (Polish confirmations, enforce KHLJ-only VATSIM, and improve UI feedback)

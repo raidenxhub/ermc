@@ -20,49 +20,37 @@ ssssssssssssssssss    import { browser } from '$app/environment';
     let fullNameValue = '';
     let isStaffChecked = false;
     let positionValue = '';
-<<<<<<< HEAD
-    let termsAccepted = false;
-    let showAccessKey = false;
-    let cancelState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
     let rejectModalShown = false;
     let deletionTriggered = false;
-    let draftSaveTimer: number | null = null;
-    let onboardingForm: HTMLFormElement | null = null;
+    type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
 
-    const draftKey = () => `ermc:onboardingDraft:${String(data?.user?.id || 'anon')}`;
-    const clearDraft = () => {
-        if (!browser) return;
+    const triggerRejectedAccountDeletion = () => {
+        if (!browser || deletionTriggered) return;
+        deletionTriggered = true;
+
+        const url = '/onboarding?/deleteRejectedAccount';
+        const body = new URLSearchParams().toString();
+
         try {
-            localStorage.removeItem(draftKey());
+            const blob = new Blob([body], { type: 'application/x-www-form-urlencoded' });
+            if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+                navigator.sendBeacon(url, blob);
+            }
+        } catch {
+            return;
+        }
+
+        try {
+            void fetch(url, {
+                method: 'POST',
+                headers: { 'content-type': 'application/x-www-form-urlencoded' },
+                body,
+                keepalive: true
+            });
         } catch {
             return;
         }
     };
-    const scheduleDraftSave = (draft: {
-        cidValue: string;
-        fullNameValue: string;
-        isStaffChecked: boolean;
-        positionValue: string;
-        termsAccepted: boolean;
-    }) => {
-        if (!browser) return;
-        if (draftSaveTimer) window.clearTimeout(draftSaveTimer);
-        draftSaveTimer = window.setTimeout(() => {
-            try {
-                localStorage.setItem(draftKey(), JSON.stringify({ ...draft, updatedAt: Date.now() }));
-            } catch {
-                return;
-            }
-        }, 250);
-    };
-
-    const forceReloadHome = () => {
-        if (!browser) return;
-        window.location.replace('/');
-    };
-=======
-    type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
->>>>>>> parent of 678cf79 (Polish confirmations, enforce KHLJ-only VATSIM, and improve UI feedback)
 
     const verifyCid = async (cid: string) => {
         if (!browser) return;
@@ -94,7 +82,6 @@ ssssssssssssssssss    import { browser } from '$app/environment';
                 cidVerifyMessage = payload?.message || 'Unable to verify CID right now.';
                 cidVerifiedValue = '';
                 cidMember = null;
-<<<<<<< HEAD
                 if (res.status === 403) {
                     triggerRejectedAccountDeletion();
                     if (!rejectModalShown) {
@@ -106,18 +93,14 @@ ssssssssssssssssss    import { browser } from '$app/environment';
                             showCancel: false,
                             dismissible: false
                         });
-                        clearDraft();
-                        forceReloadHome();
+                        await goto('/');
                     }
                 }
-=======
->>>>>>> parent of 678cf79 (Polish confirmations, enforce KHLJ-only VATSIM, and improve UI feedback)
                 return;
             }
             cidVerifyState = 'success';
             cidVerifiedValue = trimmed;
             cidMember = payload.member;
-<<<<<<< HEAD
             const vatsimSubdivisionId = typeof payload?.member?.subdivision_id === 'string' ? payload.member.subdivision_id.trim() : '';
             if (vatsimSubdivisionId.toUpperCase() !== 'KHLJ') {
                 triggerRejectedAccountDeletion();
@@ -133,13 +116,10 @@ ssssssssssssssssss    import { browser } from '$app/environment';
                         showCancel: false,
                         dismissible: false
                     });
-                    clearDraft();
-                    forceReloadHome();
+                    await goto('/');
                 }
                 return;
             }
-=======
->>>>>>> parent of 678cf79 (Polish confirmations, enforce KHLJ-only VATSIM, and improve UI feedback)
             const nameFromCid = typeof payload?.member?.name === 'string' ? payload.member.name.trim() : '';
             if (nameFromCid && !fullNameValue) fullNameValue = nameFromCid;
         } catch {
@@ -151,7 +131,6 @@ ssssssssssssssssss    import { browser } from '$app/environment';
         }
     };
 
-<<<<<<< HEAD
     $: if (!browser) {
         rejectModalShown = false;
         deletionTriggered = false;
@@ -169,10 +148,7 @@ ssssssssssssssssss    import { browser } from '$app/environment';
             confirmText: 'Return to homepage',
             showCancel: false,
             dismissible: false
-        }).then(() => {
-            clearDraft();
-            forceReloadHome();
-        });
+        }).then(() => goto('/'));
     }
 
 
@@ -398,19 +374,7 @@ ssssssssssssssssss    import { browser } from '$app/environment';
                         </div>
 
                         <div>
-<<<<<<< HEAD
                             <div class="label"><span class="label-text">Name</span></div>
-                            <input
-                                name="full_name"
-                                id="full_name"
-                                type="text"
-                                bind:value={fullNameValue}
-                                placeholder="e.g. John Doe"
-                                class="input input-bordered w-full"
-                                required
-                            />
-=======
-                            <div class="label"><span class="label-text">VATSIM Name</span></div>
                             {#if cidVerifyState === 'success' && cidMember?.name && !showNameInput}
                                 <input type="hidden" name="full_name" value={fullNameValue} />
                                 <div class="rounded-lg border bg-base-200 px-4 py-3 text-sm flex items-center justify-between gap-3">
