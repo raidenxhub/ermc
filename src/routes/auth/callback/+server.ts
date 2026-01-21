@@ -49,17 +49,22 @@ export const GET: RequestHandler = async ({ url, locals: { supabase }, cookies }
 
 			// Upsert profile using service role with Discord data
 			if (user) {
-				const serviceRole = privateEnv.SUPABASE_SERVICE_ROLE;
+				const serviceRole = privateEnv.SUPABASE_SERVICE_ROLE?.trim()?.replace(/^["']|["']$/g, '');
 				if (!serviceRole) {
 					console.error('Missing SUPABASE_SERVICE_ROLE');
 					throw redirect(303, '/');
 				}
-				const supabaseUrl = privateEnv.PUBLIC_SUPABASE_URL || publicEnv.PUBLIC_SUPABASE_URL;
+				let supabaseUrl = (privateEnv.PUBLIC_SUPABASE_URL || publicEnv.PUBLIC_SUPABASE_URL)?.trim()?.replace(/^["']|["']$/g, '');
 				if (!supabaseUrl) {
 					console.error('Missing PUBLIC_SUPABASE_URL');
 					throw redirect(303, '/');
 				}
-				const admin = createClient(supabaseUrl, serviceRole);
+				if (!supabaseUrl.startsWith('http')) {
+					supabaseUrl = `https://${supabaseUrl}`;
+				}
+				const admin = createClient(supabaseUrl, serviceRole, {
+					auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+				});
 				const rawEmail = user.email || user.user_metadata?.email;
 				const email = typeof rawEmail === 'string' && rawEmail.trim().length > 0 ? rawEmail.trim() : null;
 				const avatar_url = user.user_metadata?.avatar_url || user.user_metadata?.picture;
