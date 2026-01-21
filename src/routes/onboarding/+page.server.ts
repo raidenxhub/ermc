@@ -134,8 +134,12 @@ export const actions: Actions = {
 				.eq('id', user.id);
 
 			if (error) {
-				console.error(error);
-				return fail(500, { message: 'Failed to save profile. Please try again.' });
+				const errorId =
+					typeof globalThis !== 'undefined' && (globalThis as any)?.crypto?.randomUUID
+						? (globalThis as any).crypto.randomUUID()
+						: String(Date.now());
+				console.error('Profile update failed:', errorId, error);
+				return fail(500, { message: `Failed to save profile. (Error: ${errorId})` });
 			}
 
 			try {
@@ -144,7 +148,11 @@ export const actions: Actions = {
 					.update({ ermc_access_granted: true, ermc_access_verified_at: nowIso, updated_at: nowIso })
 					.eq('id', user.id);
 			} catch (e) {
-				console.error('Failed to set access key flags:', e);
+				const errorId =
+					typeof globalThis !== 'undefined' && (globalThis as any)?.crypto?.randomUUID
+						? (globalThis as any).crypto.randomUUID()
+						: String(Date.now());
+				console.error('Failed to set access key flags:', errorId, e);
 			}
 
 			throw redirect(303, '/dashboard');
