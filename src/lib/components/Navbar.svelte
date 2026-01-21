@@ -97,72 +97,75 @@
 
 	<div class="drawer-content flex flex-col">
 		<div class="sticky top-0 z-50 w-full">
-			<div class="px-4 lg:px-8">
-				<div class="mx-auto flex w-full justify-center py-2">
-					<div class="inline-flex w-full max-w-7xl items-center justify-between gap-3 transition-all duration-300 {pillCls()} {compact ? 'max-w-fit' : ''}">
-						<a href="/" class="inline-flex items-center gap-2 rounded-xl px-2 py-1 transition-all duration-300 {compact ? 'pr-1' : ''}" on:click={(e) => nav(e, '/')}>
-							<Logo href={null} size={compact ? 96 : 189} />
+			<div class="container mx-auto px-4 py-2">
+				<div class="flex w-full items-center gap-3 transition-all duration-300 {pillCls()}">
+					<a
+						href="/"
+						class="inline-flex items-center gap-2 rounded-xl px-2 py-1 transition-all duration-300 {compact ? 'pr-1' : ''}"
+						on:click={(e) => nav(e, '/')}
+					>
+						<Logo href={null} size={compact ? 96 : 189} />
+					</a>
+
+					<div class="hidden lg:inline-flex items-center gap-1 transition-opacity duration-200 {navLoading ? 'opacity-60' : 'opacity-100'}">
+						<a
+							href="/contact"
+							class="group inline-flex items-center gap-2 rounded-xl px-3 py-2 font-medium transition-all duration-300 {linkCls()}"
+							on:click={(e) => nav(e, '/contact')}
+						>
+							{#if contactNavLoading}
+								<span class="loader" style="transform: scale(0.33); transform-origin: center;"></span>
+							{:else}
+								<Send size={compact ? 18 : 20} />
+							{/if}
+							<span class="overflow-hidden whitespace-nowrap transition-all duration-300 {labelCls()}">Get in touch</span>
 						</a>
 
-						<div class="hidden lg:inline-flex items-center gap-1 transition-opacity duration-200 {navLoading ? 'opacity-60' : 'opacity-100'}">
-							{#if user}
-								<a
-									href="/dashboard"
-									class="group inline-flex items-center gap-2 rounded-xl px-3 py-2 font-medium transition-all duration-300 {linkCls()}"
-									on:click={(e) => nav(e, '/dashboard')}
-								>
-									<Info size={compact ? 18 : 20} />
-									<span class="overflow-hidden whitespace-nowrap transition-all duration-300 {labelCls()}">Dashboard</span>
-								</a>
-								<a
-									href="/rostering"
-									class="group inline-flex items-center gap-2 rounded-xl px-3 py-2 font-medium transition-all duration-300 {linkCls()}"
-									on:click={(e) => nav(e, '/rostering')}
-								>
-									<Radar size={compact ? 18 : 20} />
-									<span class="overflow-hidden whitespace-nowrap transition-all duration-300 {labelCls()}">Event Rostering</span>
-								</a>
-								<a
-									href="/coordination"
-									class="group inline-flex items-center gap-2 rounded-xl px-3 py-2 font-medium transition-all duration-300 {linkCls()}"
-									on:click={(e) => nav(e, '/coordination')}
-								>
-									<BarChart3 size={compact ? 18 : 20} />
-									<span class="overflow-hidden whitespace-nowrap transition-all duration-300 {labelCls()}">Coordination</span>
-								</a>
-								{#if (user.role === 'staff' || user.role === 'admin' || user.role === 'coordinator') && user.cid}
-									<a
-										href="/events/mgmt"
-										class="group inline-flex items-center gap-2 rounded-xl px-3 py-2 font-medium transition-all duration-300 {linkCls()}"
-										on:click={(e) => nav(e, '/events/mgmt')}
-									>
-										<Settings size={compact ? 18 : 20} />
-										<span class="overflow-hidden whitespace-nowrap transition-all duration-300 {labelCls()}">Manage Events</span>
-									</a>
-								{/if}
-							{/if}
-						</div>
-
-						<div class="hidden lg:inline-flex items-center gap-2">
+						{#if user}
 							<a
-								href="/contact"
+								href="/dashboard"
 								class="group inline-flex items-center gap-2 rounded-xl px-3 py-2 font-medium transition-all duration-300 {linkCls()}"
-								on:click={(e) => nav(e, '/contact')}
+								on:click={(e) => nav(e, '/dashboard')}
 							>
-								{#if contactNavLoading}
-									<span class="loader" style="transform: scale(0.33); transform-origin: center;"></span>
-								{:else}
-									<Send size={compact ? 18 : 20} />
-								{/if}
-								<span class="overflow-hidden whitespace-nowrap transition-all duration-300 {labelCls()}">Get in touch</span>
+								<Info size={compact ? 18 : 20} />
+								<span class="overflow-hidden whitespace-nowrap transition-all duration-300 {labelCls()}">Dashboard</span>
 							</a>
+							<a
+								href="/rostering"
+								class="group inline-flex items-center gap-2 rounded-xl px-3 py-2 font-medium transition-all duration-300 {linkCls()}"
+								on:click={(e) => nav(e, '/rostering')}
+							>
+								<Radar size={compact ? 18 : 20} />
+								<span class="overflow-hidden whitespace-nowrap transition-all duration-300 {labelCls()}">Event Rostering</span>
+							</a>
+							<a
+								href="/coordination"
+								class="group inline-flex items-center gap-2 rounded-xl px-3 py-2 font-medium transition-all duration-300 {linkCls()}"
+								on:click={(e) => nav(e, '/coordination')}
+							>
+								<BarChart3 size={compact ? 18 : 20} />
+								<span class="overflow-hidden whitespace-nowrap transition-all duration-300 {labelCls()}">Coordination</span>
+							</a>
+							{#if (user.role === 'staff' || user.role === 'admin' || user.role === 'coordinator') && user.cid}
+								<a
+									href="/events/mgmt"
+									class="group inline-flex items-center gap-2 rounded-xl px-3 py-2 font-medium transition-all duration-300 {linkCls()}"
+									on:click={(e) => nav(e, '/events/mgmt')}
+								>
+									<Settings size={compact ? 18 : 20} />
+									<span class="overflow-hidden whitespace-nowrap transition-all duration-300 {labelCls()}">Manage Events</span>
+								</a>
+							{/if}
+						{/if}
+					</div>
 
+					<div class="hidden lg:inline-flex items-center gap-2 ml-auto">
 							{#if user}
 								<div class="dropdown dropdown-end">
 									<div tabindex="0" role="button" class="btn btn-ghost btn-circle transition-all duration-300">
 										<div class="avatar">
 											<div
-												class="overflow-hidden rounded-full transition-all duration-300 {compact ? 'w-10 h-10' : 'w-16 h-16'} aspect-square"
+												class="overflow-hidden rounded-full transition-all duration-300 {compact ? 'w-9 h-9' : 'w-14 h-14'} aspect-square"
 											>
 											{#if navLoading || (!user.cid && !user.name)}
 												<div class="w-full h-full flex items-center justify-center">
@@ -206,13 +209,12 @@
 							{:else}
 								<a href="/auth/login" class="btn btn-primary btn-sm">Login</a>
 							{/if}
-						</div>
+					</div>
 
-						<div class="lg:hidden">
+					<div class="lg:hidden ml-auto">
 							<label for="mobile-drawer" class="btn btn-square btn-ghost">
 								<Menu size={28} />
 							</label>
-						</div>
 					</div>
 				</div>
 			</div>

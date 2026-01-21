@@ -4,6 +4,9 @@ import { z } from 'zod';
 const memberSchema = z.object({
 	id: z.number(),
 	rating: z.number(),
+	name_first: z.string().optional(),
+	name_last: z.string().optional(),
+	name: z.string().optional(),
 	pilotrating: z.number().optional(),
 	country: z.string().nullable().optional(),
 	countystate: z.string().nullable().optional(),

@@ -15,7 +15,7 @@ const goContact = async (e: MouseEvent) => {
 </script>
 
 <main class="flex flex-col text-white">
-	<section class="container mx-auto flex min-h-dvh flex-col justify-center px-4 py-20">
+	<section class="container mx-auto flex min-h-dvh flex-col justify-start px-4 pt-28 pb-16 md:pt-36">
 		<p class="text-3xl font-semibold text-white/90 md:text-5xl">Welcome to</p>
 		<h1 class="mt-2 text-5xl font-bold md:text-7xl">ERMC</h1>
 		<p class="mt-4 max-w-2xl text-white/80">
@@ -45,7 +45,7 @@ const goContact = async (e: MouseEvent) => {
 			{/if}
 		</div>
 
-		<div class="mt-10 grid gap-4 md:grid-cols-4">
+		<div class="mt-8 grid gap-4 md:grid-cols-4">
 			<div class="rounded-xl border border-white/10 bg-black/30 p-5 backdrop-blur-sm">
 				<div class="flex items-center gap-3">
 					<MessagesSquare size={20} />

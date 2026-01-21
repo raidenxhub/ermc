@@ -8,6 +8,7 @@
   import { toast } from 'svelte-sonner';
   import { Check, X } from 'lucide-svelte';
   import { eventsSyncing } from '$lib/stores/eventsSync';
+  import { confirm } from '$lib/confirm';
 
   export let data;
   const positionOrder = ['DEL', 'GND', 'TWR', 'APP', 'CTR'] as const;
@@ -69,16 +70,14 @@
     return Number.isNaN(d.getTime()) ? iso : d.toUTCString();
   };
 
-  const confirmBooking = (kind: 'primary' | 'standby', entry: any) => {
+  const confirmBooking = async (kind: 'primary' | 'standby', entry: any) => {
     const eventName = String(data?.event?.name || 'Event');
     const position = String(entry?.position || '');
     const airport = String(entry?.airport || '');
     const start = fmtUtc(String(entry?.start_time || ''));
     const end = fmtUtc(String(entry?.end_time || ''));
     const bookingType = kind === 'primary' ? 'Primary booking' : 'Standby request';
-    const lines = [
-      'Confirm booking',
-      '',
+    const message = [
       bookingType,
       '',
       `Event: ${eventName}`,
@@ -88,30 +87,26 @@
       '',
       kind === 'primary'
         ? 'By confirming, you will claim this slot immediately if it is still available.'
-        : 'By confirming, you will be added to standby for this slot (not guaranteed).',
-      '',
-      'Do you want to continue?'
-    ];
-    return confirm(lines.join('\n'));
+        : 'By confirming, you will be added to standby for this slot (not guaranteed).'
+    ].join('\n');
+    return confirm({ title: 'Confirm booking', message, confirmText: 'Confirm', cancelText: 'Cancel' });
   };
 
-  const confirmCancelBooking = (entry: any) => {
+  const confirmCancelBooking = async (entry: any) => {
     const eventName = String(data?.event?.name || 'Event');
     const position = String(entry?.position || '');
     const airport = String(entry?.airport || '');
     const start = fmtUtc(String(entry?.start_time || ''));
     const end = fmtUtc(String(entry?.end_time || ''));
-    const lines = [
-      'Cancel booking',
-      '',
+    const message = [
       `Event: ${eventName}`,
       `Airport: ${airport}`,
       `Position: ${position}`,
       `Time (UTC): ${start} – ${end}`,
       '',
       'Are you sure you want to cancel this booking?'
-    ];
-    return confirm(lines.join('\n'));
+    ].join('\n');
+    return confirm({ title: 'Cancel booking', message, confirmText: 'Cancel booking', cancelText: 'Keep booking' });
   };
 
   const standbyClaimsFor = (entryId: string) =>
@@ -143,9 +138,20 @@
 
   const getFormState = (key: string): SubmitState => formStates[key] || 'idle';
 
-  const useFormEnhance = (formEl: HTMLFormElement, params: { key: string; successToast?: string }) => {
+  const useFormEnhance = (
+    formEl: HTMLFormElement,
+    params: { key: string; successToast?: string; confirm?: () => Promise<boolean> }
+  ) => {
     if (!browser) return;
-    const submit: SubmitFunction = () => {
+    const submit: SubmitFunction = async ({ cancel }) => {
+      if (params.confirm) {
+        const ok = await params.confirm();
+        if (!ok) {
+          cancel();
+          setFormState(params.key, 'idle');
+          return;
+        }
+      }
       setFormState(params.key, 'loading');
       return async ({ result, update }) => {
         await update({ reset: false });
@@ -321,13 +327,7 @@
                             <form
                               method="POST"
                               action="?/claim_primary"
-                              use:useFormEnhance={{ key: `claim_primary:${entry.id}`, successToast: 'Claimed.' }}
-                              on:submit={(e) => {
-                                if (!confirmBooking('primary', entry)) {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                }
-                              }}
+                              use:useFormEnhance={{ key: `claim_primary:${entry.id}`, successToast: 'Claimed.', confirm: () => confirmBooking('primary', entry) }}
                             >
                                 <input type="hidden" name="roster_entry_id" value={entry.id} />
                                 <button
@@ -348,12 +348,10 @@
                             <form
                               method="POST"
                               action="?/claim_standby"
-                              use:useFormEnhance={{ key: `claim_standby:${entry.id}`, successToast: 'Standby requested.' }}
-                              on:submit={(e) => {
-                                if (!confirmBooking('standby', entry)) {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                }
+                              use:useFormEnhance={{
+                                key: `claim_standby:${entry.id}`,
+                                successToast: 'Standby requested.',
+                                confirm: () => confirmBooking('standby', entry)
                               }}
                             >
                                 <input type="hidden" name="roster_entry_id" value={entry.id} />
@@ -395,13 +393,7 @@
                             <form
                               method="POST"
                               action="?/cancel_claim"
-                              use:useFormEnhance={{ key: `cancel_claim:${entry.id}`, successToast: 'Cancelled.' }}
-                              on:submit={(e) => {
-                                if (!confirmCancelBooking(entry)) {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                }
-                              }}
+                              use:useFormEnhance={{ key: `cancel_claim:${entry.id}`, successToast: 'Cancelled.', confirm: () => confirmCancelBooking(entry) }}
                             >
                               <input type="hidden" name="roster_entry_id" value={entry.id} />
                               <button
@@ -430,13 +422,7 @@
                             <form
                               method="POST"
                               action="?/claim_standby"
-                              use:useFormEnhance={{ key: `standby:${entry.id}`, successToast: 'Standby requested.' }}
-                              on:submit={(e) => {
-                                if (!confirmBooking('standby', entry)) {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                }
-                              }}
+                              use:useFormEnhance={{ key: `standby:${entry.id}`, successToast: 'Standby requested.', confirm: () => confirmBooking('standby', entry) }}
                             >
                               <input type="hidden" name="roster_entry_id" value={entry.id} />
                               <button

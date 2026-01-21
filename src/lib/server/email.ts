@@ -79,13 +79,8 @@ const renderEmailLayout = (params: {
 	const hiddenPreview = `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${escapeHtml(preview)}</div>`;
 	const brand = `
     <div style="padding:24px 24px 0">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#2563eb,#22c55e);display:inline-flex;align-items:center;justify-content:center;color:#ffffff;font-weight:900;font-size:16px">ER</div>
-        <div>
-          <div style="font-size:14px;font-weight:800;letter-spacing:.4px;color:#0f172a">ERMC</div>
-          <div style="font-size:12px;color:#64748b">Event Rostering &amp; Management</div>
-        </div>
-      </div>
+      <div style="font-size:14px;font-weight:800;letter-spacing:.4px;color:#0f172a">ERMC</div>
+      <div style="margin-top:2px;font-size:12px;color:#64748b">Event Rostering &amp; Management</div>
     </div>
   `;
 
@@ -101,7 +96,7 @@ const renderEmailLayout = (params: {
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <title>${escapeHtml(params.subject)}</title>
     </head>
-    <body style="margin:0;padding:0;background:#0b1220">
+    <body style="margin:0;padding:0;background:#f1f5f9">
       ${hiddenPreview}
       <div style="padding:28px 12px">
         <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:640px;margin:0 auto">
@@ -122,10 +117,10 @@ const renderEmailLayout = (params: {
                 </div>
               </div>
               <div style="max-width:640px;margin:14px auto 0;padding:0 10px;text-align:center">
-                <p style="margin:0 0 8px;font-size:12px;line-height:1.6;color:rgba(226,232,240,.9)">
+                <p style="margin:0 0 8px;font-size:12px;line-height:1.6;color:#64748b">
                   ${footerLinks}
                 </p>
-                <p style="margin:0;font-size:12px;line-height:1.6;color:rgba(226,232,240,.75)">
+                <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8">
                   This email was sent from ERMC. If you didn’t request this, you can ignore it.
                 </p>
               </div>
@@ -218,6 +213,8 @@ export async function sendBookingConfirmedEmail(params: {
 	to: string;
 	name?: string | null;
 	eventName: string;
+	subdivision?: string | null;
+	airport?: string | null;
 	position: string;
 	startTime: string;
 	endTime: string;
@@ -230,7 +227,9 @@ export async function sendBookingConfirmedEmail(params: {
 	const card = `
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border:1px solid rgba(148,163,184,.25);border-radius:16px;overflow:hidden;background:#ffffff">
       ${renderCardRow('Event', cleanText(params.eventName))}
-      ${renderCardRow('Position', params.position)}
+      ${params.subdivision ? renderCardRow('Subdivision', cleanText(params.subdivision)) : ''}
+      ${params.airport ? renderCardRow('Airport', cleanText(params.airport)) : ''}
+      ${renderCardRow('Position', cleanText(params.position))}
       ${renderCardRow('Start (UTC)', fmtUtc(params.startTime))}
       ${renderCardRow('End (UTC)', fmtUtc(params.endTime))}
     </table>
@@ -254,6 +253,8 @@ export async function sendBookingCancelledEmail(params: {
 	to: string;
 	name?: string | null;
 	eventName: string;
+	subdivision?: string | null;
+	airport?: string | null;
 	position: string;
 	startTime: string;
 	endTime: string;
@@ -266,7 +267,9 @@ export async function sendBookingCancelledEmail(params: {
 	const card = `
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border:1px solid rgba(148,163,184,.25);border-radius:16px;overflow:hidden;background:#ffffff">
       ${renderCardRow('Event', cleanText(params.eventName))}
-      ${renderCardRow('Position', params.position)}
+      ${params.subdivision ? renderCardRow('Subdivision', cleanText(params.subdivision)) : ''}
+      ${params.airport ? renderCardRow('Airport', cleanText(params.airport)) : ''}
+      ${renderCardRow('Position', cleanText(params.position))}
       ${renderCardRow('Start (UTC)', fmtUtc(params.startTime))}
       ${renderCardRow('End (UTC)', fmtUtc(params.endTime))}
     </table>
@@ -286,7 +289,16 @@ export async function sendBookingCancelledEmail(params: {
 	await sendResendEmail({ from: sender, to, subject, html: rendered.html, text: rendered.text });
 }
 
-export async function sendStandbyRequestedEmail(params: { to: string; name?: string | null; eventName: string; position: string }) {
+export async function sendStandbyRequestedEmail(params: {
+	to: string;
+	name?: string | null;
+	eventName: string;
+	subdivision?: string | null;
+	airport?: string | null;
+	position: string;
+	startTime?: string | null;
+	endTime?: string | null;
+}) {
 	const to = params.to.trim();
 	if (!to) return;
 	const subject = `Standby requested: ${cleanText(params.eventName)}`;
@@ -295,7 +307,11 @@ export async function sendStandbyRequestedEmail(params: { to: string; name?: str
 	const card = `
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border:1px solid rgba(148,163,184,.25);border-radius:16px;overflow:hidden;background:#ffffff">
       ${renderCardRow('Event', cleanText(params.eventName))}
-      ${renderCardRow('Position', params.position)}
+      ${params.subdivision ? renderCardRow('Subdivision', cleanText(params.subdivision)) : ''}
+      ${params.airport ? renderCardRow('Airport', cleanText(params.airport)) : ''}
+      ${renderCardRow('Position', cleanText(params.position))}
+      ${params.startTime ? renderCardRow('Start (UTC)', fmtUtc(params.startTime)) : ''}
+      ${params.endTime ? renderCardRow('End (UTC)', fmtUtc(params.endTime)) : ''}
     </table>
     <p style="margin:14px 0 0;font-size:13px;line-height:1.6;color:#334155">
       If the primary booking becomes available, standby may be promoted automatically based on queue order.

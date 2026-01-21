@@ -99,6 +99,17 @@ export const handle: Handle = async ({ event, resolve }) => {
 		event.url.pathname.startsWith('/statistics') ||
 		event.url.pathname.startsWith('/access-key');
 
+	const pathname = event.url.pathname;
+	const isApi = pathname.startsWith('/api/');
+	const isAuthRoute = pathname.startsWith('/auth/');
+	const isOnboardingRoute = pathname.startsWith('/onboarding');
+	const isAccessKeyRoute = pathname.startsWith('/access-key');
+	const isConsentRoute = pathname.startsWith('/oauth/consent');
+	const isStaticAsset =
+		pathname.startsWith('/_app/') || pathname.startsWith('/favicon') || pathname.startsWith('/static/') || /\.[a-z0-9]+$/i.test(pathname);
+
+	const allowWhileOnboarding = isApi || isStaticAsset || isAuthRoute || isConsentRoute || isOnboardingRoute || isAccessKeyRoute;
+
 	if (requiresAuth) {
 		if (!event.locals.user) {
 			throw redirect(303, '/auth/login');
@@ -134,6 +145,41 @@ export const handle: Handle = async ({ event, resolve }) => {
 				// Don't let the hook crash - continue to the page
 				// This prevents 500 errors when DB is down or profile check fails
 			}
+		}
+	}
+
+	if (event.locals.user && !isApi) {
+		try {
+			const { data: profile, error } = await event.locals
+				.supabase!.from('profiles')
+				.select('id, ermc_access_granted, cid, rating, name')
+				.eq('id', event.locals.user.id)
+				.maybeSingle();
+
+			if (!error && profile) {
+				const onboardingComplete = !!(profile.ermc_access_granted && profile.cid && profile.rating && profile.name);
+				const onboardingIncomplete = !onboardingComplete;
+
+				if (onboardingIncomplete && !allowWhileOnboarding) {
+					throw redirect(303, '/onboarding');
+				}
+
+				if (onboardingComplete && isOnboardingRoute) {
+					throw redirect(303, '/dashboard');
+				}
+
+				if (profile.ermc_access_granted && isAccessKeyRoute) {
+					throw redirect(303, '/dashboard');
+				}
+
+				if (isAuthRoute && pathname !== '/auth/logout' && pathname !== '/auth/login') {
+					throw redirect(303, onboardingIncomplete ? '/onboarding' : '/dashboard');
+				}
+			} else if (!profile && !allowWhileOnboarding) {
+				throw redirect(303, '/onboarding');
+			}
+		} catch (e) {
+			if ((e as { status?: number })?.status === 303) throw e;
 		}
 	}
 

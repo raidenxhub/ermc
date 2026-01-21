@@ -17,19 +17,35 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, user } 
 		.order('start_time', { ascending: true })
 		.order('position', { ascending: true });
 
+	const rosterDeduped = (() => {
+		const byKey = new Map<string, any>();
+		for (const r of roster || []) {
+			const key = `${r.airport}|${r.position}|${new Date(r.start_time).toISOString()}|${new Date(r.end_time).toISOString()}`;
+			const existing = byKey.get(key);
+			if (!existing) {
+				byKey.set(key, r);
+				continue;
+			}
+			if (!existing.user_id && r.user_id) {
+				byKey.set(key, r);
+			}
+		}
+		return [...byKey.values()];
+	})();
+
 	const { data: claims } = await supabase
 		.from('roster_claims')
 		.select('*, user:profiles(id,name,cid,rating_short)')
 		.in(
 			'roster_entry_id',
-			(roster || []).map((r) => r.id)
+			rosterDeduped.map((r) => r.id)
 		);
 
 	// Check if user is staff/coordinator
 	const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
 	const isStaff = profile?.role === 'staff' || profile?.role === 'admin' || profile?.role === 'coordinator';
 
-	return { event, roster: roster || [], claims: claims || [], me: user, isStaff };
+	return { event, roster: rosterDeduped, claims: claims || [], me: user, isStaff };
 };
 
 export const actions: Actions = {
@@ -92,26 +108,72 @@ export const actions: Actions = {
 			await admin.from('events').update({ id_bigint: eventIdBigint }).eq('id', event_id);
 		}
 
-		const res = await admin.from('roster_entries').insert({
-			event_id,
-			event_id_bigint: eventIdBigint,
-			airport,
-			position: fullPosition,
-			start_time: startDate.toISOString(),
-			end_time: endDate.toISOString(),
-			status: 'open'
-		});
-
-		if (res.error?.code === 'PGRST204') {
-			const res2 = await admin.from('roster_entries').insert({
+		const res = await admin.from('roster_entries').upsert(
+			{
 				event_id,
+				event_id_bigint: eventIdBigint,
+				airport,
+				position: fullPosition,
+				start_time: startDate.toISOString(),
+				end_time: endDate.toISOString(),
+				status: 'open'
+			},
+			{ onConflict: 'event_id,airport,position,start_time,end_time', ignoreDuplicates: true }
+		);
+
+		if (res.error?.code === '42P10') {
+			const resInsert = await admin.from('roster_entries').insert({
+				event_id,
+				event_id_bigint: eventIdBigint,
 				airport,
 				position: fullPosition,
 				start_time: startDate.toISOString(),
 				end_time: endDate.toISOString(),
 				status: 'open'
 			});
-			if (res2.error) {
+			if (resInsert.error?.code === 'PGRST204') {
+				const resInsert2 = await admin.from('roster_entries').insert({
+					event_id,
+					airport,
+					position: fullPosition,
+					start_time: startDate.toISOString(),
+					end_time: endDate.toISOString(),
+					status: 'open'
+				});
+				if (resInsert2.error) {
+					console.error('Error adding slot:', resInsert2.error);
+					return fail(500, { message: 'Failed to add slot' });
+				}
+			} else if (resInsert.error) {
+				console.error('Error adding slot:', resInsert.error);
+				return fail(500, { message: 'Failed to add slot' });
+			}
+		} else if (res.error?.code === 'PGRST204') {
+			const res2 = await admin.from('roster_entries').upsert(
+				{
+					event_id,
+					airport,
+					position: fullPosition,
+					start_time: startDate.toISOString(),
+					end_time: endDate.toISOString(),
+					status: 'open'
+				},
+				{ onConflict: 'event_id,airport,position,start_time,end_time', ignoreDuplicates: true }
+			);
+			if (res2.error?.code === '42P10') {
+				const resInsert2 = await admin.from('roster_entries').insert({
+					event_id,
+					airport,
+					position: fullPosition,
+					start_time: startDate.toISOString(),
+					end_time: endDate.toISOString(),
+					status: 'open'
+				});
+				if (resInsert2.error) {
+					console.error('Error adding slot:', resInsert2.error);
+					return fail(500, { message: 'Failed to add slot' });
+				}
+			} else if (res2.error) {
 				console.error('Error adding slot:', res2.error);
 				return fail(500, { message: 'Failed to add slot' });
 			}
@@ -132,7 +194,7 @@ export const actions: Actions = {
 
 		const { data: meProfile, error: profileError } = await supabase
 			.from('profiles')
-			.select('rating, rating_short, cid, email, name, discord_username')
+			.select('rating, rating_short, cid, email, name, discord_username, subdivision')
 			.eq('id', user.id)
 			.single();
 		if (profileError || !meProfile?.rating || !meProfile?.cid) return fail(400, { message: 'Complete your profile before booking.' });
@@ -181,6 +243,8 @@ export const actions: Actions = {
 				to: emailTo,
 				name: nameForEmail,
 				eventName,
+				subdivision: (meProfile as any).subdivision ?? null,
+				airport: String(entry.airport || '') || null,
 				position: String(entry.position || ''),
 				startTime: String(entry.start_time || ''),
 				endTime: String(entry.end_time || '')
@@ -198,14 +262,14 @@ export const actions: Actions = {
 
 		const { data: meProfile, error: profileError } = await supabase
 			.from('profiles')
-			.select('rating, cid, email, name, discord_username')
+			.select('rating, cid, email, name, discord_username, subdivision')
 			.eq('id', user.id)
 			.single();
 		if (profileError || !meProfile?.rating || !meProfile?.cid) return fail(400, { message: 'Complete your profile before booking.' });
 
 		const { data: entry } = await supabase
 			.from('roster_entries')
-			.select('position, event:events(start_time,status)')
+			.select('airport, position, start_time, end_time, event_id, event:events(name,start_time,status)')
 			.eq('id', roster_entry_id)
 			.single();
 		if (!entry) return fail(404, { message: 'Slot not found' });
@@ -248,14 +312,20 @@ export const actions: Actions = {
 
 		const emailTo = typeof meProfile.email === 'string' ? meProfile.email : '';
 		if (emailTo) {
-			const { data: eventRow } = await supabase
-				.from('events')
-				.select('name')
-				.eq('id', (entry as any).event_id)
-				.maybeSingle();
-			const eventName = (eventRow?.name as string) || 'Event';
+			const eventAny = (entry as any).event;
+			const eventObj = Array.isArray(eventAny) ? eventAny[0] : eventAny;
+			const eventName = (eventObj?.name as string) || 'Event';
 			const nameForEmail = (meProfile.name as string) || (meProfile.discord_username as string) || null;
-			void sendStandbyRequestedEmail({ to: emailTo, name: nameForEmail, eventName, position: String((entry as any).position || '') });
+			void sendStandbyRequestedEmail({
+				to: emailTo,
+				name: nameForEmail,
+				eventName,
+				subdivision: (meProfile as any).subdivision ?? null,
+				airport: String((entry as any).airport || '') || null,
+				position: String((entry as any).position || ''),
+				startTime: String((entry as any).start_time || '') || null,
+				endTime: String((entry as any).end_time || '') || null
+			});
 		}
 		return { success: true };
 	},
@@ -311,7 +381,7 @@ export const actions: Actions = {
 
 					const { data: promotedProfile } = await supabase
 						.from('profiles')
-						.select('email,name,discord_username')
+						.select('email,name,discord_username,subdivision')
 						.eq('id', standbyNext.user_id)
 						.maybeSingle();
 					const emailTo = typeof promotedProfile?.email === 'string' ? promotedProfile.email : '';
@@ -323,6 +393,8 @@ export const actions: Actions = {
 							to: emailTo,
 							name: nameForEmail,
 							eventName,
+							subdivision: (promotedProfile as any)?.subdivision ?? null,
+							airport: String(entry.airport || '') || null,
 							position: String(entry.position || ''),
 							startTime: String(entry.start_time || ''),
 							endTime: String(entry.end_time || '')
@@ -332,7 +404,11 @@ export const actions: Actions = {
 			}
 		}
 
-		const { data: cancelledProfile } = await supabase.from('profiles').select('email,name,discord_username').eq('id', user.id).maybeSingle();
+		const { data: cancelledProfile } = await supabase
+			.from('profiles')
+			.select('email,name,discord_username,subdivision')
+			.eq('id', user.id)
+			.maybeSingle();
 		const cancelledEmail = typeof cancelledProfile?.email === 'string' ? cancelledProfile.email : '';
 		if (cancelledEmail) {
 			const { data: ev } = await supabase.from('events').select('name').eq('id', entry.event_id).maybeSingle();
@@ -342,6 +418,8 @@ export const actions: Actions = {
 				to: cancelledEmail,
 				name: nameForEmail,
 				eventName,
+				subdivision: (cancelledProfile as any)?.subdivision ?? null,
+				airport: String(entry.airport || '') || null,
 				position: String(entry.position || ''),
 				startTime: String(entry.start_time || ''),
 				endTime: String(entry.end_time || '')

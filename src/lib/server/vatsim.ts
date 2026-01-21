@@ -130,11 +130,29 @@ export async function generateRosterSlots(
 	}
 
 	if (entriesToInsert.length > 0) {
-		const res = await supabase.from('roster_entries').insert(entriesToInsert);
-		if (res.error?.code === 'PGRST204') {
+		const res = await supabase
+			.from('roster_entries')
+			.upsert(entriesToInsert, { onConflict: 'event_id,airport,position,start_time,end_time', ignoreDuplicates: true });
+		if (res.error?.code === '42P10') {
+			const resInsert = await supabase.from('roster_entries').insert(entriesToInsert);
+			if (resInsert.error?.code === 'PGRST204') {
+				const stripped = entriesToInsert.map(({ event_id_bigint: _event_id_bigint, ...rest }) => rest);
+				const resInsert2 = await supabase.from('roster_entries').insert(stripped as any);
+				if (resInsert2.error) console.error('Error generating slots:', resInsert2.error);
+			} else if (resInsert.error) {
+				console.error('Error generating slots:', resInsert.error);
+			}
+		} else if (res.error?.code === 'PGRST204') {
 			const stripped = entriesToInsert.map(({ event_id_bigint: _event_id_bigint, ...rest }) => rest);
-			const res2 = await supabase.from('roster_entries').insert(stripped as any);
-			if (res2.error) console.error('Error generating slots:', res2.error);
+			const res2 = await supabase
+				.from('roster_entries')
+				.upsert(stripped as any, { onConflict: 'event_id,airport,position,start_time,end_time', ignoreDuplicates: true });
+			if (res2.error?.code === '42P10') {
+				const resInsert2 = await supabase.from('roster_entries').insert(stripped as any);
+				if (resInsert2.error) console.error('Error generating slots:', resInsert2.error);
+			} else if (res2.error) {
+				console.error('Error generating slots:', res2.error);
+			}
 		} else if (res.error) {
 			console.error('Error generating slots:', res.error);
 		}

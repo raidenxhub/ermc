@@ -6,6 +6,7 @@
   import Footer from '$lib/components/Footer.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import CookieConsent from '$lib/components/CookieConsent.svelte';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import { navigating, page } from '$app/stores';
   import { invalidate, invalidateAll } from '$app/navigation';
   import { browser } from '$app/environment';
@@ -18,6 +19,7 @@
   $: bannerUrls = Array.isArray(data?.bannerUrls) ? (data.bannerUrls as string[]) : [];
   $: canonicalUrl = $page.url.origin + $page.url.pathname;
   $: ogImageUrl = $page.url.origin + '/background.png';
+  $: hideNavbar = $page.url.pathname.startsWith('/auth') || $page.url.pathname.startsWith('/onboarding') || $page.url.pathname.startsWith('/oauth') || $page.url.pathname.startsWith('/access-key');
 
   onMount(() => {
     if (!supabase) return;
@@ -94,7 +96,9 @@
     class="fixed inset-0 -z-20 h-full w-full object-cover object-center"
   />
 
-  <Navbar {user} navLoading={!!$navigating} />
+  {#if !hideNavbar}
+    <Navbar {user} navLoading={!!$navigating} />
+  {/if}
 
   {#if $navigating}
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
@@ -109,4 +113,5 @@
   <Footer />
   <Toast />
   <CookieConsent />
+  <ConfirmDialog />
 </div>

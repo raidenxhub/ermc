@@ -217,6 +217,21 @@ from public.events e
 where re.event_id = e.id and (re.event_id_bigint is null or re.event_id_bigint = '');
 alter table public.roster_entries alter column event_id_bigint set not null;
 
+delete from public.roster_entries re
+using (
+  select
+    id,
+    row_number() over (
+      partition by event_id, airport, position, start_time, end_time
+      order by created_at asc, id asc
+    ) as rn
+  from public.roster_entries
+) d
+where re.id = d.id and d.rn > 1;
+
+create unique index if not exists roster_entries_unique_slot
+  on public.roster_entries (event_id, airport, position, start_time, end_time);
+
 -- CLAIMS
 create table if not exists public.roster_claims (
   id uuid default gen_random_uuid() primary key,

@@ -5,6 +5,7 @@
 	import { toast } from 'svelte-sonner';
 	import { Check, X } from 'lucide-svelte';
 	import { eventsSyncing } from '$lib/stores/eventsSync';
+	import { confirm } from '$lib/confirm';
 
 	export let data: PageData;
 
@@ -16,7 +17,18 @@
 
 	const useEnhanceDelete = (formEl: HTMLFormElement) => {
 		if (!browser) return;
-		const submit: SubmitFunction = () => {
+		const submit: SubmitFunction = async ({ cancel }) => {
+			const ok = await confirm({
+				title: 'Delete event',
+				message: 'Delete this event permanently?',
+				confirmText: 'Delete',
+				cancelText: 'Cancel'
+			});
+			if (!ok) {
+				cancel();
+				deleteState = 'idle';
+				return;
+			}
 			deleteState = 'loading';
 			return async ({ result, update }) => {
 				if (result.type === 'success') {
@@ -36,7 +48,18 @@
 
 	const useEnhanceCancel = (formEl: HTMLFormElement) => {
 		if (!browser) return;
-		const submit: SubmitFunction = () => {
+		const submit: SubmitFunction = async ({ cancel }) => {
+			const ok = await confirm({
+				title: 'Cancel event',
+				message: 'Cancel this event?',
+				confirmText: 'Cancel event',
+				cancelText: 'Keep event'
+			});
+			if (!ok) {
+				cancel();
+				cancelState = 'idle';
+				return;
+			}
 			cancelState = 'loading';
 			return async ({ result, update }) => {
 				if (result.type === 'success') {
@@ -93,12 +116,6 @@
 			method="POST"
 			action="?/cancelEvent"
 			use:useEnhanceCancel
-			on:submit={(e) => {
-				if (!confirm('Cancel this event?')) {
-					e.preventDefault();
-					e.stopPropagation();
-				}
-			}}
 		>
 			<input type="hidden" name="id" value={data.event.id} />
 			<button class="btn ermc-state-btn {cancelState === 'success' ? 'ermc-success-btn' : cancelState === 'error' ? 'btn-error' : 'btn-ghost'}" disabled={cancelState === 'loading' || cancelState === 'success'}>
@@ -118,12 +135,6 @@
 			method="POST"
 			action="?/deleteEvent"
 			use:useEnhanceDelete
-			on:submit={(e) => {
-				if (!confirm('Delete this event permanently?')) {
-					e.preventDefault();
-					e.stopPropagation();
-				}
-			}}
 		>
 			<input type="hidden" name="id" value={data.event.id} />
 			<button class="btn ermc-state-btn {deleteState === 'success' ? 'ermc-success-btn' : deleteState === 'error' ? 'btn-error' : 'btn-ghost'} text-error hover:bg-error/10" disabled={deleteState === 'loading' || deleteState === 'success'}>

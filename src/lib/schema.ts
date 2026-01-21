@@ -119,6 +119,8 @@ CREATE TABLE IF NOT EXISTS public.roster_entries (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+CREATE UNIQUE INDEX IF NOT EXISTS roster_entries_unique_slot
+  ON public.roster_entries (event_id, airport, position, start_time, end_time);
 ALTER TABLE public.roster_entries ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Roster entries are viewable by everyone" ON public.roster_entries FOR SELECT USING (true);
 CREATE POLICY "Authenticated users can claim open slots" ON public.roster_entries FOR UPDATE USING (auth.uid() = user_id OR user_id IS NULL);

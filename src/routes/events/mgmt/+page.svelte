@@ -6,6 +6,7 @@
 	import { Plus, Edit, Trash2, Check, X, Clock, Ban } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import { eventsSyncing } from '$lib/stores/eventsSync';
+	import { confirm } from '$lib/confirm';
 
 	export let data: PageData;
 	const { events } = data;
@@ -58,7 +59,18 @@
 
 	const useEnhanceDelete = (formEl: HTMLFormElement, eventId: string) => {
 		if (!browser) return;
-		const submit: SubmitFunction = () => {
+		const submit: SubmitFunction = async ({ cancel }) => {
+			const ok = await confirm({
+				title: 'Delete event',
+				message: 'Delete this event permanently?',
+				confirmText: 'Delete',
+				cancelText: 'Cancel'
+			});
+			if (!ok) {
+				cancel();
+				setDeleteState(eventId, 'idle');
+				return;
+			}
 			setDeleteState(eventId, 'loading');
 			return async ({ result, update }) => {
 				if (result.type === 'success') {
@@ -84,7 +96,18 @@
 
 	const useEnhanceCancel = (formEl: HTMLFormElement, eventId: string) => {
 		if (!browser) return;
-		const submit: SubmitFunction = () => {
+		const submit: SubmitFunction = async ({ cancel }) => {
+			const ok = await confirm({
+				title: 'Cancel event',
+				message: 'Cancel this event?',
+				confirmText: 'Cancel event',
+				cancelText: 'Keep event'
+			});
+			if (!ok) {
+				cancel();
+				setCancelState(eventId, 'idle');
+				return;
+			}
 			setCancelState(eventId, 'loading');
 			return async ({ result, update }) => {
 				if (result.type === 'success') {
@@ -340,12 +363,6 @@
 									action="?/cancelEvent"
 									method="POST"
 									use:useEnhanceCancel={event.id}
-									on:submit={(e) => {
-										if (!confirm('Cancel this event?')) {
-											e.preventDefault();
-											e.stopPropagation();
-										}
-									}}
 								>
 									<input type="hidden" name="id" value={event.id} />
 									<button
@@ -369,12 +386,6 @@
 									action="?/deleteEvent"
 									method="POST"
 									use:useEnhanceDelete={event.id}
-									on:submit={(e) => {
-										if (!confirm('Delete this event permanently?')) {
-											e.preventDefault();
-											e.stopPropagation();
-										}
-									}}
 								>
 									<input type="hidden" name="id" value={event.id} />
 									<button

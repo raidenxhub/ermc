@@ -1,9 +1,10 @@
 <script lang="ts">
     import { browser } from '$app/environment';
     import { enhance } from '$app/forms';
-    import { goto } from '$app/navigation';
+    import { goto, invalidateAll } from '$app/navigation';
     import { UserPlus, Check, X } from 'lucide-svelte';
     import { onDestroy } from 'svelte';
+    import { confirm } from '$lib/confirm';
 
     export let form;
     export let data;
@@ -17,6 +18,11 @@
     let cidMember: any = null;
     let cidDebounceTimer: number | null = null;
     let cidRequestToken = 0;
+    let fullNameValue = '';
+    let nameTouched = false;
+    let showNameInput = false;
+    let isStaffChecked = false;
+    let positionValue = '';
     type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
 
     const verifyCid = async (cid: string) => {
@@ -54,12 +60,20 @@
             cidVerifyState = 'success';
             cidVerifiedValue = trimmed;
             cidMember = payload.member;
+            const nameFromCid = typeof payload?.member?.name === 'string' ? payload.member.name.trim() : '';
+            if (nameFromCid && !nameTouched) {
+                fullNameValue = nameFromCid;
+                showNameInput = false;
+            } else if (!nameFromCid) {
+                showNameInput = true;
+            }
         } catch {
             if (token !== cidRequestToken) return;
             cidVerifyState = 'error';
             cidVerifyMessage = 'Unable to verify CID right now.';
             cidVerifiedValue = '';
             cidMember = null;
+            showNameInput = false;
         }
     };
 
@@ -77,25 +91,38 @@
 
     const confirmCidOnSubmit = () => {
         const cid = cidValue.trim();
-        const lines = [
-            'Confirm your CID',
-            '',
-            `CID: ${cid}`,
-            '',
-            'Are you sure this is your VATSIM CID? Please double-check before continuing.'
-        ];
-        return confirm(lines.join('\n'));
+        const message = ['CID: ' + cid, '', 'Are you sure this is your VATSIM CID? Please double-check before continuing.'].join('\n');
+        return confirm({ title: 'Confirm your CID', message, confirmText: 'Continue', cancelText: 'Cancel' });
     };
 
     const useEnhanceOnboarding = (formEl: HTMLFormElement) => {
         if (!browser) return;
-        const submit: SubmitFunction = () => {
+        const submit: SubmitFunction = async ({ cancel }) => {
+            if (cidVerifyState !== 'success' || cidVerifiedValue !== cidValue.trim()) {
+                cancel();
+                submitState = 'error';
+                setTimeout(() => (submitState = 'idle'), 2000);
+                return;
+            }
+            if (isStaffChecked && (!positionValue || positionValue.trim().length === 0)) {
+                cancel();
+                submitState = 'error';
+                setTimeout(() => (submitState = 'idle'), 2000);
+                return;
+            }
+            const ok = await confirmCidOnSubmit();
+            if (!ok) {
+                cancel();
+                submitState = 'idle';
+                return;
+            }
             submitState = 'loading';
             return async ({ result, update }) => {
                 if (result.type === 'redirect') {
                     submitState = 'success';
                     const location = (result as { location: string }).location;
                     await new Promise((r) => setTimeout(r, 650));
+                    await invalidateAll();
                     await goto(location);
                     return;
                 }
@@ -141,19 +168,6 @@
                         method="POST"
                         use:useEnhanceOnboarding
                         class="flex flex-col gap-6"
-                        on:submit={(e) => {
-                            if (cidVerifyState !== 'success' || cidVerifiedValue !== cidValue.trim()) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                submitState = 'error';
-                                setTimeout(() => (submitState = 'idle'), 2000);
-                                return;
-                            }
-                            if (!confirmCidOnSubmit()) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                            }
-                        }}
                     >
                     <div class="rounded-lg border bg-base-200 p-4 space-y-2">
                         <p class="text-sm">We will store your Discord username and email to personalize your ERMC account.</p>
@@ -170,10 +184,6 @@
                     </div>
 
                     <div class="grid gap-4 md:grid-cols-2">
-                        <div>
-                            <label class="label" for="full_name"><span class="label-text">VATSIM Name</span></label>
-                            <input name="full_name" id="full_name" type="text" placeholder="e.g. John Doe" class="input input-bordered w-full" required />
-                        </div>
                         <div>
                             <label class="label" for="cid"><span class="label-text">VATSIM CID</span></label>
                             <div class="relative">
@@ -212,12 +222,30 @@
                                 Your CID and verified details are locked after onboarding. Contact support to change them.
                             </div>
                         </div>
+
                         <div>
-                            <label class="label" for="rating"><span class="label-text">VATSIM Rating</span></label>
-                            <input id="rating" type="text" value="Verified automatically from your CID" disabled class="input input-bordered w-full bg-base-200" />
-                            <div class="mt-2 text-xs text-base-content/70">
-                                We verify your rating and VATSIM member details during onboarding.
-                            </div>
+                            <div class="label"><span class="label-text">VATSIM Name</span></div>
+                            {#if cidVerifyState === 'success' && cidMember?.name && !showNameInput}
+                                <input type="hidden" name="full_name" value={fullNameValue} />
+                                <div class="rounded-lg border bg-base-200 px-4 py-3 text-sm flex items-center justify-between gap-3">
+                                    <span class="font-medium">{fullNameValue}</span>
+                                    <button type="button" class="btn btn-xs btn-ghost" on:click={() => (showNameInput = true)}>Edit</button>
+                                </div>
+                            {:else}
+                                <input
+                                    name="full_name"
+                                    id="full_name"
+                                    type="text"
+                                    bind:value={fullNameValue}
+                                    placeholder="e.g. John Doe"
+                                    class="input input-bordered w-full"
+                                    required
+                                    on:input={() => (nameTouched = true)}
+                                />
+                                <div class="mt-2 text-xs text-base-content/70">
+                                    If we can’t fetch your name from VATSIM, enter it manually.
+                                </div>
+                            {/if}
                         </div>
                         <div>
                             <label class="label" for="subdivision"><span class="label-text">Subdivision</span></label>
@@ -256,14 +284,16 @@
 
                     <div class="form-control">
                         <label class="label cursor-pointer justify-start gap-4">
-                            <input type="checkbox" name="is_staff" class="checkbox checkbox-primary" />
+                            <input type="checkbox" name="is_staff" class="checkbox checkbox-primary" bind:checked={isStaffChecked} on:change={() => (positionValue = (data?.profile?.position as string) || '')} />
                             <span class="label-text font-medium">I am a Staff member or Coordinator</span>
                         </label>
                     </div>
-                    <div class="form-control">
-                        <label class="label" for="position"><span class="label-text">Staff Position (optional)</span></label>
-                        <input type="text" name="position" id="position" placeholder="e.g. Events Coordinator" class="input input-bordered w-full" />
-                    </div>
+                    {#if isStaffChecked}
+                        <div class="form-control">
+                            <label class="label" for="position"><span class="label-text">Staff Position</span></label>
+                            <input type="text" name="position" id="position" placeholder="e.g. Events Coordinator" class="input input-bordered w-full" bind:value={positionValue} required />
+                        </div>
+                    {/if}
 
 						<div class="form-control rounded-lg border border-base-300 p-4">
 							<label class="label cursor-pointer items-start gap-4">

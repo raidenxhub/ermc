@@ -181,8 +181,8 @@
         <p class="text-muted-foreground">Live event chat, controller roster presence, and knock alerts.</p>
     </div>
     {#if !data.access}
-        <div class="flex-1 flex items-center justify-center">
-            <div class="max-w-md text-center space-y-4 p-8 border rounded-xl bg-card shadow-lg">
+        <div class="mt-8">
+            <div class="max-w-md space-y-4 p-8 border rounded-xl bg-card shadow-lg">
                 <div class="flex justify-center">
                     <Ban size={48} class="text-error" />
                 </div>

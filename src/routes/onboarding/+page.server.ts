@@ -11,12 +11,13 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 
 	const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
 
-	if (profile && profile.name && profile.email && profile.cid && profile.rating && profile.subdivision) {
+	if (profile && profile.ermc_access_granted && profile.name && profile.cid && profile.rating && profile.subdivision) {
 		throw redirect(303, '/dashboard');
 	}
 
 	return {
-		user
+		user,
+		profile
 	};
 };
 
@@ -47,6 +48,9 @@ export const actions: Actions = {
 		}
 		if (!fullName || !cid || !subdivision) {
 			return fail(400, { message: 'Please fill in all required fields.' });
+		}
+		if (isStaff && (!position || position.trim().length === 0)) {
+			return fail(400, { message: 'Please enter your staff position.' });
 		}
 		let member: Awaited<ReturnType<typeof fetchVatsimMember>> | null = null;
 		try {

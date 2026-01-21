@@ -1,7 +1,7 @@
 <script lang="ts">
     import { browser } from '$app/environment';
     import { enhance } from '$app/forms';
-    import { goto, invalidateAll } from '$app/navigation';
+    import { goto } from '$app/navigation';
     import { Trash2, AlertTriangle, Check, X } from 'lucide-svelte';
     import { toast } from 'svelte-sonner';
 
@@ -22,9 +22,7 @@
                     toast.success('Account deleted.');
                     const location = (result as { location: string }).location;
                     await new Promise((r) => setTimeout(r, 2000));
-                    await invalidateAll();
                     await goto(location);
-                    await invalidateAll();
                     return;
                 }
 

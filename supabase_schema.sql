@@ -140,6 +140,9 @@ CREATE TABLE public.roster_entries (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE UNIQUE INDEX roster_entries_unique_slot
+  ON public.roster_entries (event_id, airport, position, start_time, end_time);
+
 -- Enable RLS for Roster Entries
 ALTER TABLE public.roster_entries ENABLE ROW LEVEL SECURITY;
 

@@ -11,6 +11,10 @@ export const GET: RequestHandler = async ({ url }) => {
 	try {
 		const member = await fetchVatsimMember(cid);
 		const ratingInfo = ratingToShortLong(Number(member.rating));
+		const fullName =
+			typeof (member as any).name === 'string' && (member as any).name.trim().length > 0
+				? (member as any).name.trim()
+				: [((member as any).name_first as string) || '', ((member as any).name_last as string) || ''].join(' ').trim() || null;
 		return json({
 			ok: true,
 			member: {
@@ -18,6 +22,7 @@ export const GET: RequestHandler = async ({ url }) => {
 				rating: member.rating,
 				rating_short: ratingInfo.short,
 				rating_long: ratingInfo.long,
+				name: fullName,
 				region_id: member.region_id ?? null,
 				division_id: member.division_id ?? null,
 				subdivision_id: member.subdivision_id ?? null,

@@ -51,7 +51,8 @@ export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 					throw redirect(303, '/');
 				}
 				const admin = createClient(supabaseUrl, serviceRole);
-				const email = user.email || user.user_metadata?.email;
+				const rawEmail = user.email || user.user_metadata?.email;
+				const email = typeof rawEmail === 'string' && rawEmail.trim().length > 0 ? rawEmail.trim() : null;
 				const avatar_url = user.user_metadata?.avatar_url || user.user_metadata?.picture;
 				const discord_username =
 					user.user_metadata?.user_name || user.user_metadata?.full_name || user.user_metadata?.custom_claims?.global_name;
@@ -64,7 +65,7 @@ export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 					await admin
 						.from('profiles')
 						.update({
-							email,
+							email: email ?? (existingProfile as any).email ?? null,
 							avatar_url,
 							discord_username,
 							updated_at: new Date().toISOString()
