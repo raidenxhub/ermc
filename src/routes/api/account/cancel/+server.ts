@@ -36,5 +36,5 @@ export const POST: RequestHandler = async ({ locals }) => {
 		// ignore
 	}
 
-	return json({ ok: true, redirectTo: '/?cancelled=1' });
+	return json({ ok: true, redirectTo: '/' });
 };

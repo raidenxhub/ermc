@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
 import { env as privateEnv } from '$env/dynamic/private';
 import { createAdminClient } from '$lib/server/supabaseAdmin';
 import { fetchVatsimMember, ratingToShortLong } from '$lib/server/vatsimMember';

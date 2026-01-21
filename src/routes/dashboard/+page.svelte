@@ -4,6 +4,7 @@
     import { BarChart3, CalendarRange, Settings, Check } from 'lucide-svelte';
     import { eventsSyncing } from '$lib/stores/eventsSync';
     import { onMount } from 'svelte';
+    import { invalidateAll } from '$app/navigation';
     import { browser } from '$app/environment';
     import { toast } from 'svelte-sonner';
 
@@ -47,6 +48,14 @@
             if (tryShow()) window.clearInterval(interval);
         }, 1500);
         window.setTimeout(() => window.clearInterval(interval), 12_000);
+    });
+
+    onMount(() => {
+        if (!browser) return;
+        const interval = window.setInterval(() => {
+            void invalidateAll();
+        }, 30_000);
+        return () => window.clearInterval(interval);
     });
 </script>
 

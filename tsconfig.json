@@ -1,4 +1,5 @@
 {
+	"extends": "./.svelte-kit/tsconfig.json",
 	"compilerOptions": {
 		"allowJs": true,
 		"checkJs": false,
@@ -8,13 +9,9 @@
 		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
-		"moduleResolution": "bundler",
-		"types": ["svelte", "@sveltejs/kit"],
+		"types": ["svelte", "@sveltejs/kit", "vite/client"],
 		"lib": ["ES2020", "DOM"],
-		"baseUrl": ".",
-		"paths": {
-			"$lib/*": ["src/lib/*"]
-		}
+		"moduleResolution": "bundler"
 	},
-	"include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte", "svelte.config.js", "vite.config.ts"]
+	"include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte", "vite.config.ts"]
 }

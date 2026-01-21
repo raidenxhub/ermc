@@ -5,7 +5,6 @@
     import { confirm } from '$lib/confirm';
     import { toast } from 'svelte-sonner';
     import { enhance } from '$app/forms';
-    import type { SubmitFunction } from '$app/forms';
 
     export let form;
     export let data;
@@ -159,6 +158,7 @@
         }
     };
 
+    type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
     const handleCompleteRegistration = async () => {
         if (!browser) return;
         if (!onboardingForm) return;
@@ -188,18 +188,17 @@
             if (res.ok && payload?.ok && typeof payload.redirectTo === 'string') {
                 submitState = 'success';
                 clearDraft();
-                await new Promise((r) => setTimeout(r, 300));
                 window.location.replace(payload.redirectTo);
                 return;
             }
             const msg = payload?.message || 'Registration failed. Please try again.';
             submitState = 'error';
             toast.error(msg);
-            setTimeout(() => (submitState = 'idle'), 2000);
+            setTimeout(() => (submitState = 'idle'), 1200);
         } catch (e) {
             submitState = 'error';
             toast.error('Registration failed. Please try again.');
-            setTimeout(() => (submitState = 'idle'), 2000);
+            setTimeout(() => (submitState = 'idle'), 1200);
         }
     };
 
@@ -237,7 +236,7 @@
     const useEnhanceOnboarding = (formEl: HTMLFormElement) => {
         if (!browser) return;
         onboardingForm = formEl;
-        const submit: SubmitFunction = async ({ cancel: _ }) => {
+        const submit: SubmitFunction = async ({ cancel }) => {
             submitState = 'loading';
             return async ({ result, update }) => {
                 try {
@@ -246,14 +245,12 @@
                         submitState = 'success';
                         clearDraft();
                         const location = (result as { location: string }).location;
-                        await new Promise((r) => setTimeout(r, 450));
                         window.location.replace(location);
                         return;
                     }
                     if (type === 'success') {
                         submitState = 'success';
                         clearDraft();
-                        await new Promise((r) => setTimeout(r, 450));
                         window.location.replace('/dashboard');
                         return;
                     }
@@ -272,13 +269,13 @@
                         console.error('[Registration] Unknown error result structure:', result);
                     }
                     toast.error(errMsg);
-                    setTimeout(() => (submitState = 'idle'), 2000);
+                    setTimeout(() => (submitState = 'idle'), 1200);
                     await update({ reset: false });
                 } catch (e) {
                     console.error('[Registration] Client error:', e);
                     submitState = 'error';
                     toast.error(`Registration exception: ${String(e)}`);
-                    setTimeout(() => (submitState = 'idle'), 2000);
+                    setTimeout(() => (submitState = 'idle'), 1200);
                 }
             };
         };
@@ -287,7 +284,7 @@
 
     const useEnhanceCancelRegistration = (formEl: HTMLFormElement) => {
         if (!browser) return;
-        const submit: SubmitFunction = async ({ cancel: _ }) => {
+        const submit: SubmitFunction = async ({ cancel }) => {
             cancelState = 'loading'; // Ensure state is loading when submission actually starts
             return async ({ result, update }) => {
                 console.log('[CancelRegistration] Result:', result);
@@ -307,7 +304,7 @@
                 }
                 
                 toast.error(msg);
-                setTimeout(() => (cancelState = 'idle'), 2000);
+                setTimeout(() => (cancelState = 'idle'), 1200);
                 await update();
             };
         };
@@ -368,7 +365,6 @@
                                     on:input={(e) => onCidInput((e.currentTarget as HTMLInputElement).value)}
                                     placeholder="e.g. 1000000"
                                     inputmode="numeric"
-                                    pattern={'\\d{4,10}'}
                                     minlength="4"
                                     maxlength="10"
                                     class="input input-bordered w-full pr-12"

@@ -69,14 +69,14 @@
                 </div>
 
                 <div class="form-control w-full">
-                    <label class="label" for="vatsim_cid"><span class="label-text">VATSIM CID (Locked)</span></label>
+                    <label class="label" for="vatsim_cid"><span class="label-text">VATSIM CID</span></label>
                     <input id="vatsim_cid" type="text" value={profile.cid || ''} disabled class="input input-bordered w-full bg-base-200" />
-                    <div class="mt-2 text-xs text-base-content/70">To change your CID, contact support.</div>
+                    <div class="mt-2 text-xs text-base-content/70">To request a change to your CID, contact <a href="/contact" class="text-primary">our support team</a>.</div>
                 </div>
 
                 <div class="mt-6 rounded-lg border bg-base-200 p-4 space-y-3">
                     <div class="flex items-center justify-between">
-                        <div class="font-semibold">VATSIM Details (Verified)</div>
+                        <div class="font-semibold">VATSIM Details</div>
                         {#if profile.rating_short}
                             <span class="badge badge-success">{profile.rating_short}</span>
                         {/if}

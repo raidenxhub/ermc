@@ -226,6 +226,38 @@ export const actions: Actions = {
 			return fail(400, { message: 'Booking is closed (closes 15m before event).' });
 		}
 
+		// Enforce single position per time slot (no overlapping bookings)
+		const { data: overlappingPrimary } = await supabase
+			.from('roster_entries')
+			.select('id')
+			.eq('event_id', (entry as any).event_id)
+			.eq('user_id', user.id)
+			.lt('start_time', (entry as any).end_time)
+			.gt('end_time', (entry as any).start_time)
+			.limit(1);
+		if ((overlappingPrimary || []).length > 0) {
+			return fail(400, { message: 'You already have a booking in this time slot.' });
+		}
+		const { data: overlappingEntriesForStandby } = await supabase
+			.from('roster_entries')
+			.select('id')
+			.eq('event_id', (entry as any).event_id)
+			.lt('start_time', (entry as any).end_time)
+			.gt('end_time', (entry as any).start_time);
+		const overlappingIds = (overlappingEntriesForStandby || []).map((r: any) => r.id);
+		if (overlappingIds.length > 0) {
+			const { data: overlappingStandby } = await supabase
+				.from('roster_claims')
+				.select('id')
+				.in('roster_entry_id', overlappingIds)
+				.eq('user_id', user.id)
+				.eq('type', 'standby')
+				.limit(1);
+			if ((overlappingStandby || []).length > 0) {
+				return fail(400, { message: 'You already have a standby in this time slot.' });
+			}
+		}
+
 		// create primary claim (trigger will set roster_entries.user_id)
 		const { error } = await supabase.from('roster_claims').insert({ roster_entry_id, user_id: user.id, type: 'primary' });
 		if (error) {
@@ -293,6 +325,38 @@ export const actions: Actions = {
 		const startTime = new Date(eventStart).getTime();
 		if (now > startTime - 15 * 60 * 1000) {
 			return fail(400, { message: 'Booking is closed (closes 15m before event).' });
+		}
+
+		// Enforce single position per time slot (no overlapping bookings or standbys)
+		const { data: overlappingPrimary } = await supabase
+			.from('roster_entries')
+			.select('id')
+			.eq('event_id', (entry as any).event_id)
+			.eq('user_id', user.id)
+			.lt('start_time', (entry as any).end_time)
+			.gt('end_time', (entry as any).start_time)
+			.limit(1);
+		if ((overlappingPrimary || []).length > 0) {
+			return fail(400, { message: 'You already have a booking in this time slot.' });
+		}
+		const { data: overlappingEntries } = await supabase
+			.from('roster_entries')
+			.select('id')
+			.eq('event_id', (entry as any).event_id)
+			.lt('start_time', (entry as any).end_time)
+			.gt('end_time', (entry as any).start_time);
+		const overlappingIds = (overlappingEntries || []).map((r: any) => r.id);
+		if (overlappingIds.length > 0) {
+			const { data: overlappingStandby } = await supabase
+				.from('roster_claims')
+				.select('id')
+				.in('roster_entry_id', overlappingIds)
+				.eq('user_id', user.id)
+				.eq('type', 'standby')
+				.limit(1);
+			if ((overlappingStandby || []).length > 0) {
+				return fail(400, { message: 'You already have a standby in this time slot.' });
+			}
 		}
 
 		const { data: existing } = await supabase

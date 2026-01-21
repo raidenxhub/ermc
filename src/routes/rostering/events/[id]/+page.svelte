@@ -11,7 +11,7 @@
   import { confirm } from '$lib/confirm';
 
   export let data;
-  const positionOrder = ['DEL', 'GND', 'TWR', 'APP', 'CTR'] as const;
+  const positionOrder: string[] = ['DEL', 'GND', 'TWR', 'APP', 'CTR'];
   const minRatingByPos: Record<string, number> = { DEL: 2, GND: 2, TWR: 3, APP: 4, CTR: 5 };
 
   const posCode = (value: unknown) => {
@@ -63,7 +63,7 @@
     return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
   };
 
-  $: sortedRoster = ([...(data?.roster || [])] as any[]).filter(isEligibleForEntry).sort(rosterSort);
+  $: sortedRoster = ([...(data?.roster || [])] as any[]).sort(rosterSort);
 
   const fmtUtc = (iso: string) => {
     const d = new Date(iso);
@@ -152,29 +152,30 @@
           setFormState(params.key, 'idle');
           return;
         }
+        // Optimistic success immediately after confirmation
+        setFormState(params.key, 'success');
+        // Trigger immediate data refresh for everyone
+        await invalidateAll();
       } else {
         setFormState(params.key, 'loading');
       }
       return async ({ result, update }) => {
         await update({ reset: false });
-
         if (result.type === 'success') {
-          setFormState(params.key, 'success');
           if (params.successToast) toast.success(params.successToast);
           await invalidateAll();
-          setTimeout(() => setFormState(params.key, 'idle'), 2000);
+          // Keep success briefly, then reset to idle so buttons return to normal
+          setTimeout(() => setFormState(params.key, 'idle'), 800);
           return;
         }
-
         if (result.type === 'failure') {
           setFormState(params.key, 'error');
           const message = (result.data as { message?: string })?.message || 'Request failed.';
           toast.error(message);
           await invalidateAll();
-          setTimeout(() => setFormState(params.key, 'idle'), 2000);
+          setTimeout(() => setFormState(params.key, 'idle'), 1200);
           return;
         }
-
         setFormState(params.key, 'idle');
       };
     };

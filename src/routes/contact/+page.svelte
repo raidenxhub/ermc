@@ -42,7 +42,7 @@
 
 <main class="flex flex-col">
     <section class="min-h-dvh">
-        <div class="container mx-auto px-4 pt-28 pb-16 md:pt-36">
+        <div class="container mx-auto px-4 pt-12 pb-12 md:pt-16">
             <div class="mx-auto w-full max-w-lg">
                 <div class="mb-8 text-center">
                     <h1 class="text-4xl font-bold text-white md:text-5xl">Contact Us</h1>
