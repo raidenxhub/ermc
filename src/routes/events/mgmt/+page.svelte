@@ -3,7 +3,7 @@
 	import { enhance } from '$app/forms';
 	import type { PageData } from './$types';
 	import { format } from 'date-fns';
-	import { Plus, Edit, Trash2, Check, X, Clock, Ban } from 'lucide-svelte';
+	import { Plus, Edit, Eye, Trash2, Check, X, Clock, Ban } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import { eventsSyncing } from '$lib/stores/eventsSync';
 	import { confirm } from '$lib/confirm';
@@ -60,6 +60,7 @@
 	const useEnhanceDelete = (formEl: HTMLFormElement, eventId: string) => {
 		if (!browser) return;
 		const submit: SubmitFunction = async ({ cancel }) => {
+			setDeleteState(eventId, 'loading');
 			const ok = await confirm({
 				title: 'Delete event',
 				message: 'Delete this event permanently?',
@@ -71,7 +72,6 @@
 				setDeleteState(eventId, 'idle');
 				return;
 			}
-			setDeleteState(eventId, 'loading');
 			return async ({ result, update }) => {
 				if (result.type === 'success') {
 					setDeleteState(eventId, 'success');
@@ -97,6 +97,7 @@
 	const useEnhanceCancel = (formEl: HTMLFormElement, eventId: string) => {
 		if (!browser) return;
 		const submit: SubmitFunction = async ({ cancel }) => {
+			setCancelState(eventId, 'loading');
 			const ok = await confirm({
 				title: 'Cancel event',
 				message: 'Cancel this event?',
@@ -108,7 +109,6 @@
 				setCancelState(eventId, 'idle');
 				return;
 			}
-			setCancelState(eventId, 'loading');
 			return async ({ result, update }) => {
 				if (result.type === 'success') {
 					setCancelState(eventId, 'success');
@@ -334,9 +334,10 @@
 									<a href={`/events/mgmt/${event.id}/edit`} class="btn btn-ghost btn-sm btn-square" title="Edit manual event">
 										<Edit size={16} />
 									</a>
-								{:else}
+								{/if}
+								{#if event.vatsim_id}
 									<a href={`/rostering/events/${event.id}`} class="btn btn-ghost btn-sm btn-square" title="View roster">
-										<Edit size={16} />
+										<Eye size={16} />
 									</a>
 								{/if}
 								<button type="button" class="btn btn-ghost btn-sm btn-square" on:click={() => openAddSlot(event)} title="Add slot">

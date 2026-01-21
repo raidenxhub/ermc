@@ -22,6 +22,10 @@
                     toast.success('Account deleted.');
                     const location = (result as { location: string }).location;
                     await new Promise((r) => setTimeout(r, 2000));
+                    if (location === '/' && browser) {
+                        window.location.replace('/');
+                        return;
+                    }
                     await goto(location);
                     return;
                 }

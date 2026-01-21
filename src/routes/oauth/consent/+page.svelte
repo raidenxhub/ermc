@@ -8,9 +8,9 @@
 	let state: 'loading' | 'success' = 'loading';
 
 	onMount(async () => {
-		await new Promise((r) => setTimeout(r, 350));
+		await new Promise((r) => setTimeout(r, 1400));
 		state = 'success';
-		await new Promise((r) => setTimeout(r, 350));
+		await new Promise((r) => setTimeout(r, 1400));
 		await goto(data.destination);
 	});
 </script>
@@ -26,7 +26,7 @@
 				</div>
 			{/if}
 
-			<h2 class="card-title mt-4">Discord connected</h2>
+			<h2 class="card-title mt-4">Discord Connected</h2>
 			<p>
 				{#if state === 'loading'}
 					Please wait while we verify your authorization.

@@ -21,6 +21,30 @@
   $: ogImageUrl = $page.url.origin + '/background.png';
   $: hideNavbar = $page.url.pathname.startsWith('/auth') || $page.url.pathname.startsWith('/onboarding') || $page.url.pathname.startsWith('/oauth') || $page.url.pathname.startsWith('/access-key');
 
+  const titleForPath = (pathname: string) => {
+    if (pathname === '/') return 'ERMC — Team rostering re-imagined';
+    if (pathname.startsWith('/onboarding')) return 'ERMC — Onboarding';
+    if (pathname.startsWith('/dashboard')) return 'ERMC — Dashboard';
+    if (pathname.startsWith('/rostering/events/')) return 'ERMC — Event Rostering';
+    if (pathname.startsWith('/rostering')) return 'ERMC — Rostering';
+    if (pathname.startsWith('/coordination')) return 'ERMC — Coordination';
+    if (pathname.startsWith('/events/mgmt')) return 'ERMC — Event Management';
+    if (pathname.startsWith('/events')) return 'ERMC — Events';
+    if (pathname.startsWith('/settings')) return 'ERMC — Settings';
+    if (pathname.startsWith('/statistics')) return 'ERMC — Statistics';
+    if (pathname.startsWith('/contact')) return 'ERMC — Contact';
+    if (pathname.startsWith('/privacy')) return 'ERMC — Privacy Policy';
+    if (pathname.startsWith('/terms-of-service')) return 'ERMC — Terms of Service';
+    if (pathname.startsWith('/terms-of-use')) return 'ERMC — Terms of Use';
+    if (pathname.startsWith('/auth/login')) return 'ERMC — Login';
+    if (pathname.startsWith('/auth')) return 'ERMC — Authentication';
+    if (pathname.startsWith('/oauth/consent')) return 'ERMC — Discord';
+    if (pathname.startsWith('/access-key')) return 'ERMC — Restricted Access';
+    return 'ERMC';
+  };
+
+  $: pageTitle = titleForPath($page.url.pathname);
+
   onMount(() => {
     if (!supabase) return;
 
@@ -37,6 +61,17 @@
       if (!browser) return;
       const next = new URL(p.url.toString());
       next.searchParams.delete('error');
+      history.replaceState({}, '', next.pathname + (next.searchParams.toString() ? `?${next.searchParams.toString()}` : '') + next.hash);
+    });
+
+    const toastUnsub = page.subscribe((p) => {
+      const key = p.url.searchParams.get('toast');
+      if (!key) return;
+      if (key === 'complete_onboarding') toast.warning('Complete your onboarding before attempting to access other pages.');
+      if (!browser) return;
+      const next = new URL(p.url.toString());
+      next.searchParams.delete('toast');
+      next.searchParams.delete('next');
       history.replaceState({}, '', next.pathname + (next.searchParams.toString() ? `?${next.searchParams.toString()}` : '') + next.hash);
     });
 
@@ -73,6 +108,7 @@
       window.clearInterval(pollInterval);
       subscription.unsubscribe();
       pageUnsub();
+      toastUnsub();
       supabase.removeChannel(channel);
     };
   });
@@ -82,8 +118,11 @@
 
 <svelte:head>
   <link rel="canonical" href={canonicalUrl} />
+  <title>{pageTitle}</title>
   <meta property="og:url" content={canonicalUrl} />
+  <meta property="og:title" content={pageTitle} />
   <meta property="og:image" content={ogImageUrl} />
+  <meta name="twitter:title" content={pageTitle} />
   <meta name="twitter:image" content={ogImageUrl} />
 </svelte:head>
 

@@ -158,5 +158,23 @@ export const actions: Actions = {
 		}
 
 		throw redirect(303, '/');
+	},
+	cancelRegistration: async ({ locals: { supabase, user } }) => {
+		if (!user) throw redirect(303, '/');
+		if (!supabase) throw redirect(303, '/');
+
+		try {
+			await supabase.auth.signOut();
+		} catch (e) {
+			console.error('Sign out failed during cancel-registration deletion:', e);
+		}
+
+		try {
+			await deleteUserCompletely(user.id);
+		} catch (e) {
+			console.error('Delete failed during cancel-registration deletion:', e);
+		}
+
+		throw redirect(303, '/');
 	}
 };

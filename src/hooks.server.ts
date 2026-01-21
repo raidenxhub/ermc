@@ -108,11 +108,19 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const isStaticAsset =
 		pathname.startsWith('/_app/') || pathname.startsWith('/favicon') || pathname.startsWith('/static/') || /\.[a-z0-9]+$/i.test(pathname);
 
-	const allowWhileOnboarding = isApi || isStaticAsset || isAuthRoute || isConsentRoute || isOnboardingRoute || isAccessKeyRoute;
+	const allowWhileOnboarding = isApi || isStaticAsset || isAuthRoute || isConsentRoute || isOnboardingRoute;
+	const onboardingRedirect = () => {
+		const next = encodeURIComponent(event.url.pathname + event.url.search);
+		return `/onboarding?toast=complete_onboarding&next=${next}`;
+	};
 
 	if (requiresAuth) {
 		if (!event.locals.user) {
 			throw redirect(303, '/auth/login');
+		}
+
+		if (isAccessKeyRoute) {
+			throw redirect(303, onboardingRedirect());
 		}
 
 		// Enforce Onboarding
@@ -133,10 +141,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 					// This prevents 500 errors when DB is down
 				} else if (!profile) {
 					// Only redirect if no profile found
-					throw redirect(303, '/onboarding');
-				} else if (!profile.ermc_access_granted && event.url.pathname !== '/onboarding' && !event.url.pathname.startsWith('/access-key')) {
-					const returnTo = encodeURIComponent(event.url.pathname + event.url.search);
-					throw redirect(303, `/access-key?returnTo=${returnTo}`);
+					throw redirect(303, onboardingRedirect());
+				} else if (!profile.ermc_access_granted && event.url.pathname !== '/onboarding') {
+					throw redirect(303, onboardingRedirect());
 				}
 			} catch (e) {
 				// If this throws (e.g. redirect), rethrow it.
@@ -161,22 +168,20 @@ export const handle: Handle = async ({ event, resolve }) => {
 				const onboardingIncomplete = !onboardingComplete;
 
 				if (onboardingIncomplete && !allowWhileOnboarding) {
-					throw redirect(303, '/onboarding');
+					throw redirect(303, onboardingRedirect());
 				}
 
 				if (onboardingComplete && isOnboardingRoute) {
 					throw redirect(303, '/dashboard');
 				}
 
-				if (profile.ermc_access_granted && isAccessKeyRoute) {
-					throw redirect(303, '/dashboard');
-				}
+				if (isAccessKeyRoute) throw redirect(303, onboardingRedirect());
 
 				if (isAuthRoute && pathname !== '/auth/logout' && pathname !== '/auth/login') {
 					throw redirect(303, onboardingIncomplete ? '/onboarding' : '/dashboard');
 				}
 			} else if (!profile && !allowWhileOnboarding) {
-				throw redirect(303, '/onboarding');
+				throw redirect(303, onboardingRedirect());
 			}
 		} catch (e) {
 			if ((e as { status?: number })?.status === 303) throw e;

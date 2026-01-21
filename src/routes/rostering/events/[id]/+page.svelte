@@ -145,14 +145,16 @@
     if (!browser) return;
     const submit: SubmitFunction = async ({ cancel }) => {
       if (params.confirm) {
+        setFormState(params.key, 'loading');
         const ok = await params.confirm();
         if (!ok) {
           cancel();
           setFormState(params.key, 'idle');
           return;
         }
+      } else {
+        setFormState(params.key, 'loading');
       }
-      setFormState(params.key, 'loading');
       return async ({ result, update }) => {
         await update({ reset: false });
 

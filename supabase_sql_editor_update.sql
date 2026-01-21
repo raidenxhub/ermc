@@ -303,3 +303,74 @@ create table if not exists public.vatsim_event_suppressions (
   suppressed_by uuid references public.profiles(id)
 );
 alter table public.vatsim_event_suppressions enable row level security;
+
+-- CONTACT REQUESTS (Public form submissions)
+create table if not exists public.contact_requests (
+  id uuid default gen_random_uuid() primary key,
+  name text not null,
+  email text not null,
+  subject text not null,
+  message text not null,
+  created_at timestamptz default now()
+);
+
+alter table public.contact_requests enable row level security;
+do $$ begin
+  if not exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'contact_requests' and policyname = 'Anyone can submit contact requests'
+  ) then
+    execute 'create policy "Anyone can submit contact requests" on public.contact_requests for insert with check (true)';
+  end if;
+end $$;
+
+-- COORDINATION MESSAGES
+create table if not exists public.messages (
+  id uuid default gen_random_uuid() primary key,
+  event_id uuid references public.events(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  content text not null,
+  created_at timestamptz default now()
+);
+
+alter table public.messages enable row level security;
+create index if not exists messages_event_id_idx on public.messages(event_id);
+create index if not exists messages_created_at_idx on public.messages(created_at);
+do $$ begin
+  if not exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'messages' and policyname = 'Authenticated users can read coordination messages'
+  ) then
+    execute 'create policy "Authenticated users can read coordination messages" on public.messages for select using (auth.uid() is not null)';
+  end if;
+  if not exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'messages' and policyname = 'Users can send their own coordination messages'
+  ) then
+    execute 'create policy "Users can send their own coordination messages" on public.messages for insert with check (auth.uid() = user_id)';
+  end if;
+end $$;
+
+-- KNOCKS (User-to-user notifications)
+create table if not exists public.knocks (
+  id uuid default gen_random_uuid() primary key,
+  from_user_id uuid references public.profiles(id) on delete cascade not null,
+  to_user_id uuid references public.profiles(id) on delete cascade not null,
+  event_id uuid references public.events(id) on delete cascade not null,
+  roster_entry_id uuid references public.roster_entries(id) on delete cascade,
+  message text,
+  created_at timestamptz default now()
+);
+
+alter table public.knocks enable row level security;
+create index if not exists knocks_to_user_id_idx on public.knocks(to_user_id);
+create index if not exists knocks_event_id_idx on public.knocks(event_id);
+do $$ begin
+  if not exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'knocks' and policyname = 'Users can insert their own knocks'
+  ) then
+    execute 'create policy "Users can insert their own knocks" on public.knocks for insert with check (auth.uid() = from_user_id)';
+  end if;
+  if not exists (
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'knocks' and policyname = 'Users can read knocks they are involved in'
+  ) then
+    execute 'create policy "Users can read knocks they are involved in" on public.knocks for select using (auth.uid() = to_user_id or auth.uid() = from_user_id)';
+  end if;
+end $$;

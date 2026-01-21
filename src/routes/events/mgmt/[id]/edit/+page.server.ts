@@ -12,7 +12,8 @@ export const load: PageServerLoad = async ({ locals: { supabase, user }, params 
 
 	const { data: event } = await supabase.from('events').select('*').eq('id', params.id).maybeSingle();
 	if (!event) throw redirect(303, '/events/mgmt');
-	if (event.vatsim_id) throw redirect(303, '/events/mgmt');
+	if (event.vatsim_id)
+		throw redirect(303, '/events/mgmt?error=VATSIM%20events%20cannot%20be%20edited.%20Only%20manually%20created%20events%20are%20editable.');
 
 	return { event };
 };
@@ -49,8 +50,9 @@ export const actions: Actions = {
 
 		const admin = createAdminClient();
 
-		const { data: existing } = await admin.from('events').select('id, start_time, end_time').eq('id', params.id).maybeSingle();
+		const { data: existing } = await admin.from('events').select('id, start_time, end_time, vatsim_id').eq('id', params.id).maybeSingle();
 		if (!existing) return fail(404, { message: 'Event not found.' });
+		if ((existing as any).vatsim_id) return fail(400, { message: 'VATSIM events cannot be edited.' });
 
 		const oldStart = new Date(existing.start_time);
 		const newStart = new Date(toUtcIso(start_time));

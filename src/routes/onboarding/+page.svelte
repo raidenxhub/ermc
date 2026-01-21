@@ -3,7 +3,7 @@
     import { enhance } from '$app/forms';
     import { goto, invalidateAll } from '$app/navigation';
     import { UserPlus, Check, X } from 'lucide-svelte';
-    import { onDestroy } from 'svelte';
+    import { onDestroy, onMount } from 'svelte';
     import { confirm } from '$lib/confirm';
 
     export let form;
@@ -19,13 +19,47 @@
     let cidDebounceTimer: number | null = null;
     let cidRequestToken = 0;
     let fullNameValue = '';
-    let nameTouched = false;
-    let showNameInput = false;
     let isStaffChecked = false;
     let positionValue = '';
+    let termsAccepted = false;
+    let cancelState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
     let rejectModalShown = false;
     let deletionTriggered = false;
+    let draftSaveTimer: number | null = null;
+    let cancelRegistrationForm: HTMLFormElement | null = null;
     type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
+
+    const draftKey = () => `ermc:onboardingDraft:${String(data?.user?.id || 'anon')}`;
+    const clearDraft = () => {
+        if (!browser) return;
+        try {
+            localStorage.removeItem(draftKey());
+        } catch {
+            return;
+        }
+    };
+    const scheduleDraftSave = (draft: {
+        cidValue: string;
+        fullNameValue: string;
+        isStaffChecked: boolean;
+        positionValue: string;
+        termsAccepted: boolean;
+    }) => {
+        if (!browser) return;
+        if (draftSaveTimer) window.clearTimeout(draftSaveTimer);
+        draftSaveTimer = window.setTimeout(() => {
+            try {
+                localStorage.setItem(draftKey(), JSON.stringify({ ...draft, updatedAt: Date.now() }));
+            } catch {
+                return;
+            }
+        }, 250);
+    };
+
+    const forceReloadHome = () => {
+        if (!browser) return;
+        window.location.replace('/');
+    };
 
     const triggerRejectedAccountDeletion = () => {
         if (!browser || deletionTriggered) return;
@@ -96,7 +130,8 @@
                             showCancel: false,
                             dismissible: false
                         });
-                        await goto('/');
+                        clearDraft();
+                        forceReloadHome();
                     }
                 }
                 return;
@@ -119,24 +154,19 @@
                         showCancel: false,
                         dismissible: false
                     });
-                    await goto('/');
+                    clearDraft();
+                    forceReloadHome();
                 }
                 return;
             }
             const nameFromCid = typeof payload?.member?.name === 'string' ? payload.member.name.trim() : '';
-            if (nameFromCid && !nameTouched) {
-                fullNameValue = nameFromCid;
-                showNameInput = false;
-            } else if (!nameFromCid) {
-                showNameInput = true;
-            }
+            if (nameFromCid && !fullNameValue) fullNameValue = nameFromCid;
         } catch {
             if (token !== cidRequestToken) return;
             cidVerifyState = 'error';
             cidVerifyMessage = 'Unable to verify CID right now.';
             cidVerifiedValue = '';
             cidMember = null;
-            showNameInput = false;
         }
     };
 
@@ -157,7 +187,10 @@
             confirmText: 'Return to homepage',
             showCancel: false,
             dismissible: false
-        }).then(() => goto('/'));
+        }).then(() => {
+            clearDraft();
+            forceReloadHome();
+        });
     }
 
 
@@ -171,7 +204,27 @@
     onDestroy(() => {
         if (!browser) return;
         if (cidDebounceTimer) window.clearTimeout(cidDebounceTimer);
+        if (draftSaveTimer) window.clearTimeout(draftSaveTimer);
     });
+
+    onMount(() => {
+        if (!browser) return;
+        try {
+            const raw = localStorage.getItem(draftKey());
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (typeof parsed?.cidValue === 'string') cidValue = parsed.cidValue;
+            if (typeof parsed?.fullNameValue === 'string') fullNameValue = parsed.fullNameValue;
+            if (typeof parsed?.isStaffChecked === 'boolean') isStaffChecked = parsed.isStaffChecked;
+            if (typeof parsed?.positionValue === 'string') positionValue = parsed.positionValue;
+            if (typeof parsed?.termsAccepted === 'boolean') termsAccepted = parsed.termsAccepted;
+            if (cidValue.trim()) void verifyCid(cidValue);
+        } catch {
+            return;
+        }
+    });
+
+    $: if (browser) scheduleDraftSave({ cidValue, fullNameValue, isStaffChecked, positionValue, termsAccepted });
 
     const confirmCidOnSubmit = () => {
         const cid = cidValue.trim();
@@ -204,6 +257,7 @@
             return async ({ result, update }) => {
                 if (result.type === 'redirect') {
                     submitState = 'success';
+                    clearDraft();
                     const location = (result as { location: string }).location;
                     await new Promise((r) => setTimeout(r, 650));
                     await invalidateAll();
@@ -220,6 +274,40 @@
                 }
 
                 submitState = 'idle';
+            };
+        };
+        return enhance(formEl, submit);
+    };
+
+    const useEnhanceCancelRegistration = (formEl: HTMLFormElement) => {
+        if (!browser) return;
+        const submit: SubmitFunction = async ({ cancel }) => {
+            cancelState = 'loading';
+            const ok = await confirm({
+                title: 'Cancel registration',
+                message:
+                    'This will delete your account immediately.\n\nYour data will be permanently removed within 24 hours.\n\nDo you want to continue?',
+                confirmText: 'Cancel registration',
+                cancelText: 'Keep account'
+            });
+            if (!ok) {
+                cancel();
+                cancelState = 'idle';
+                return;
+            }
+            cancelState = 'loading';
+            return async ({ result, update }) => {
+                if (result.type === 'redirect') {
+                    cancelState = 'success';
+                    clearDraft();
+                    await update({ reset: true });
+                    await new Promise((r) => setTimeout(r, 450));
+                    forceReloadHome();
+                    return;
+                }
+                await update({ reset: false });
+                cancelState = 'error';
+                setTimeout(() => (cancelState = 'idle'), 2000);
             };
         };
         return enhance(formEl, submit);
@@ -309,27 +397,15 @@
 
                         <div>
                             <div class="label"><span class="label-text">Name</span></div>
-                            {#if cidVerifyState === 'success' && cidMember?.name && !showNameInput}
-                                <input type="hidden" name="full_name" value={fullNameValue} />
-                                <div class="rounded-lg border bg-base-200 px-4 py-3 text-sm flex items-center justify-between gap-3">
-                                    <span class="font-medium">{fullNameValue}</span>
-                                    <button type="button" class="btn btn-xs btn-ghost" on:click={() => (showNameInput = true)}>Edit</button>
-                                </div>
-                            {:else}
-                                <input
-                                    name="full_name"
-                                    id="full_name"
-                                    type="text"
-                                    bind:value={fullNameValue}
-                                    placeholder="e.g. John Doe"
-                                    class="input input-bordered w-full"
-                                    required
-                                    on:input={() => (nameTouched = true)}
-                                />
-                                <div class="mt-2 text-xs text-base-content/70">
-                                    If we can’t fetch your name, enter it manually.
-                                </div>
-                            {/if}
+                            <input
+                                name="full_name"
+                                id="full_name"
+                                type="text"
+                                bind:value={fullNameValue}
+                                placeholder="e.g. John Doe"
+                                class="input input-bordered w-full"
+                                required
+                            />
                         </div>
                         <div>
                             <label class="label" for="subdivision"><span class="label-text">Subdivision</span></label>
@@ -390,7 +466,7 @@
 
 						<div class="form-control rounded-lg border border-base-300 p-4">
 							<label class="label cursor-pointer items-start gap-4">
-								<input type="checkbox" name="terms" class="checkbox checkbox-primary mt-1" required />
+								<input type="checkbox" name="terms" class="checkbox checkbox-primary mt-1" bind:checked={termsAccepted} required />
 								<div class="flex flex-col">
 									<span class="label-text font-medium">I accept the <a href="/terms-of-service" class="link link-primary" target="_blank">Terms of Service</a>, <a href="/privacy" class="link link-primary" target="_blank">Privacy Policy</a>, and <a href="/terms-of-use" class="link link-primary" target="_blank">Terms of Use</a>.</span>
 									<span class="label-text-alt mt-1 text-base-content/60">
@@ -415,7 +491,25 @@
                                 <Check size={24} /> Complete Registration
                             {/if}
                         </button>
+
+                        <button
+                            type="button"
+                            class="btn ermc-state-btn w-full mt-2 {cancelState === 'success' ? 'ermc-success-btn' : cancelState === 'error' ? 'btn-error' : 'btn-ghost'}"
+                            disabled={cancelState === 'loading' || cancelState === 'success' || submitState === 'loading'}
+                            on:click={() => cancelRegistrationForm?.requestSubmit()}
+                        >
+                            {#if cancelState === 'loading'}
+                                <span class="loader" style="transform: scale(0.5); transform-origin: center;"></span>
+                            {:else if cancelState === 'success'}
+                                <span class="ermc-icon-slide-in"><Check size={24} /></span>
+                            {:else if cancelState === 'error'}
+                                <X size={24} />
+                            {:else}
+                                Cancel registration
+                            {/if}
+                        </button>
 					</form>
+                    <form method="POST" action="?/cancelRegistration" class="hidden" bind:this={cancelRegistrationForm} use:useEnhanceCancelRegistration></form>
 				</div>
 			</div>
 		</div>
