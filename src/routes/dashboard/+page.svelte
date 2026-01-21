@@ -5,20 +5,11 @@
     import { eventsSyncing } from '$lib/stores/eventsSync';
     import { onMount } from 'svelte';
     import { browser } from '$app/environment';
-    import { goto } from '$app/navigation';
     import { toast } from 'svelte-sonner';
 
     export let data: PageData;
     const { user, upcomingEvents, onlineControllers, metars } = data;
     const bookedEventIds = new Set<string>((user?.rosterEntries || []).map((r: any) => r.event_id).filter((v: any) => typeof v === 'string'));
-    let navToEventId: string | null = null;
-    const navToEvent = async (e: Event, eventId: string) => {
-        e.preventDefault();
-        if (navToEventId) return;
-        navToEventId = eventId;
-        await goto(`/rostering/events/${eventId}`);
-        navToEventId = null;
-    };
 
     const getDeleteCountdown = (deleteAt?: string | null) => {
         if (!deleteAt) return null;
@@ -214,12 +205,9 @@
                                 <a
                                     href="/rostering/events/{event.id}"
                                     class="btn btn-sm {event.status === 'cancelled' ? 'btn-ghost' : bookedEventIds.has(event.id) ? 'ermc-state-btn ermc-success-btn' : 'btn-primary'}"
-                                    on:click={(e) => navToEvent(e, event.id)}
                                 >
                                     {#if event.status === 'cancelled'}
                                         View
-                                    {:else if navToEventId === event.id}
-                                        <span class="loader" style="transform: scale(0.333); transform-origin: center;"></span>
                                     {:else if bookedEventIds.has(event.id)}
                                         <span class="inline-flex items-center gap-2"><Check size={16} /> Booked</span>
                                     {:else}

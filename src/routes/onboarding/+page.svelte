@@ -20,6 +20,7 @@ ssssssssssssssssss    import { browser } from '$app/environment';
     let fullNameValue = '';
     let isStaffChecked = false;
     let positionValue = '';
+<<<<<<< HEAD
     let termsAccepted = false;
     let showAccessKey = false;
     let cancelState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
@@ -59,34 +60,9 @@ ssssssssssssssssss    import { browser } from '$app/environment';
         if (!browser) return;
         window.location.replace('/');
     };
-
-    const triggerRejectedAccountDeletion = () => {
-        if (!browser || deletionTriggered) return;
-        deletionTriggered = true;
-
-        const url = '/onboarding?/deleteRejectedAccount';
-        const body = new URLSearchParams().toString();
-
-        try {
-            const blob = new Blob([body], { type: 'application/x-www-form-urlencoded' });
-            if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-                navigator.sendBeacon(url, blob);
-            }
-        } catch {
-            return;
-        }
-
-        try {
-            void fetch(url, {
-                method: 'POST',
-                headers: { 'content-type': 'application/x-www-form-urlencoded' },
-                body,
-                keepalive: true
-            });
-        } catch {
-            return;
-        }
-    };
+=======
+    type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
+>>>>>>> parent of 678cf79 (Polish confirmations, enforce KHLJ-only VATSIM, and improve UI feedback)
 
     const verifyCid = async (cid: string) => {
         if (!browser) return;
@@ -118,6 +94,7 @@ ssssssssssssssssss    import { browser } from '$app/environment';
                 cidVerifyMessage = payload?.message || 'Unable to verify CID right now.';
                 cidVerifiedValue = '';
                 cidMember = null;
+<<<<<<< HEAD
                 if (res.status === 403) {
                     triggerRejectedAccountDeletion();
                     if (!rejectModalShown) {
@@ -133,11 +110,14 @@ ssssssssssssssssss    import { browser } from '$app/environment';
                         forceReloadHome();
                     }
                 }
+=======
+>>>>>>> parent of 678cf79 (Polish confirmations, enforce KHLJ-only VATSIM, and improve UI feedback)
                 return;
             }
             cidVerifyState = 'success';
             cidVerifiedValue = trimmed;
             cidMember = payload.member;
+<<<<<<< HEAD
             const vatsimSubdivisionId = typeof payload?.member?.subdivision_id === 'string' ? payload.member.subdivision_id.trim() : '';
             if (vatsimSubdivisionId.toUpperCase() !== 'KHLJ') {
                 triggerRejectedAccountDeletion();
@@ -158,6 +138,8 @@ ssssssssssssssssss    import { browser } from '$app/environment';
                 }
                 return;
             }
+=======
+>>>>>>> parent of 678cf79 (Polish confirmations, enforce KHLJ-only VATSIM, and improve UI feedback)
             const nameFromCid = typeof payload?.member?.name === 'string' ? payload.member.name.trim() : '';
             if (nameFromCid && !fullNameValue) fullNameValue = nameFromCid;
         } catch {
@@ -169,6 +151,7 @@ ssssssssssssssssss    import { browser } from '$app/environment';
         }
     };
 
+<<<<<<< HEAD
     $: if (!browser) {
         rejectModalShown = false;
         deletionTriggered = false;
@@ -193,6 +176,8 @@ ssssssssssssssssss    import { browser } from '$app/environment';
     }
 
 
+=======
+>>>>>>> parent of 678cf79 (Polish confirmations, enforce KHLJ-only VATSIM, and improve UI feedback)
     const onCidInput = (value: string) => {
         cidValue = value;
         if (!browser) return;
@@ -413,6 +398,7 @@ ssssssssssssssssss    import { browser } from '$app/environment';
                         </div>
 
                         <div>
+<<<<<<< HEAD
                             <div class="label"><span class="label-text">Name</span></div>
                             <input
                                 name="full_name"
@@ -423,6 +409,30 @@ ssssssssssssssssss    import { browser } from '$app/environment';
                                 class="input input-bordered w-full"
                                 required
                             />
+=======
+                            <div class="label"><span class="label-text">VATSIM Name</span></div>
+                            {#if cidVerifyState === 'success' && cidMember?.name && !showNameInput}
+                                <input type="hidden" name="full_name" value={fullNameValue} />
+                                <div class="rounded-lg border bg-base-200 px-4 py-3 text-sm flex items-center justify-between gap-3">
+                                    <span class="font-medium">{fullNameValue}</span>
+                                    <button type="button" class="btn btn-xs btn-ghost" on:click={() => (showNameInput = true)}>Edit</button>
+                                </div>
+                            {:else}
+                                <input
+                                    name="full_name"
+                                    id="full_name"
+                                    type="text"
+                                    bind:value={fullNameValue}
+                                    placeholder="e.g. John Doe"
+                                    class="input input-bordered w-full"
+                                    required
+                                    on:input={() => (nameTouched = true)}
+                                />
+                                <div class="mt-2 text-xs text-base-content/70">
+                                    If we can’t fetch your name from VATSIM, enter it manually.
+                                </div>
+                            {/if}
+>>>>>>> parent of 678cf79 (Polish confirmations, enforce KHLJ-only VATSIM, and improve UI feedback)
                         </div>
                         <div class="md:col-span-2 md:max-w-md md:mx-auto">
                             <label class="label" for="subdivision"><span class="label-text">Subdivision</span></label>
@@ -481,16 +491,7 @@ ssssssssssssssssss    import { browser } from '$app/environment';
 
                     <div class="form-control">
                         <label class="label cursor-pointer justify-start gap-4">
-                            <input
-                                type="checkbox"
-                                name="is_staff"
-                                class="checkbox checkbox-primary"
-                                bind:checked={isStaffChecked}
-                                on:change={() => {
-                                    const previous = (data?.profile?.position as string) || '';
-                                    positionValue = previous || positionValue || 'KHLJ Staff';
-                                }}
-                            />
+                            <input type="checkbox" name="is_staff" class="checkbox checkbox-primary" bind:checked={isStaffChecked} on:change={() => (positionValue = (data?.profile?.position as string) || '')} />
                             <span class="label-text font-medium">I am a Staff member or Coordinator</span>
                         </label>
                     </div>

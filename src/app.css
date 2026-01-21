@@ -58,17 +58,13 @@ body {
 }
 
 .ermc-success-btn {
-	background-color: rgba(16, 185, 129, 0.92) !important;
-	border-color: rgba(16, 185, 129, 0.98) !important;
+	background-color: rgba(16, 185, 129, 0.28) !important;
+	border-color: rgba(16, 185, 129, 0.38) !important;
 	color: rgba(236, 253, 245, 1) !important;
 }
 .ermc-success-btn:hover {
-	background-color: rgba(16, 185, 129, 0.92) !important;
-	border-color: rgba(16, 185, 129, 0.98) !important;
-}
-
-.ermc-state-btn:active {
-	transform: translateY(1px);
+	background-color: rgba(16, 185, 129, 0.28) !important;
+	border-color: rgba(16, 185, 129, 0.38) !important;
 }
 
 .ermc-icon-slide-in {

@@ -11,22 +11,10 @@ export const GET: RequestHandler = async ({ url }) => {
 	try {
 		const member = await fetchVatsimMember(cid);
 		const ratingInfo = ratingToShortLong(Number(member.rating));
-		const nameFirst = typeof (member as any).name_first === 'string' ? (member as any).name_first.trim() : '';
-		const nameLast = typeof (member as any).name_last === 'string' ? (member as any).name_last.trim() : '';
-		const nameFull = [nameFirst, nameLast].filter(Boolean).join(' ').trim();
-		const nameFallback = typeof (member as any).name === 'string' ? (member as any).name.trim() : '';
-		const fullName = nameFull || nameFallback || null;
-		const subdivisionId = member.subdivision_id != null ? String(member.subdivision_id).trim() : '';
-		if (subdivisionId.toUpperCase() !== 'KHLJ') {
-			return json(
-				{
-					ok: false,
-					message: `We do not currently offer our services to your VATSIM subdivision (${subdivisionId || 'unknown'}). ERMC is only available for KHLJ at this time.`,
-					subdivision_id: subdivisionId || null
-				},
-				{ status: 403 }
-			);
-		}
+		const fullName =
+			typeof (member as any).name === 'string' && (member as any).name.trim().length > 0
+				? (member as any).name.trim()
+				: [((member as any).name_first as string) || '', ((member as any).name_last as string) || ''].join(' ').trim() || null;
 		return json({
 			ok: true,
 			member: {
@@ -34,12 +22,10 @@ export const GET: RequestHandler = async ({ url }) => {
 				rating: member.rating,
 				rating_short: ratingInfo.short,
 				rating_long: ratingInfo.long,
-				name_first: nameFirst || null,
-				name_last: nameLast || null,
 				name: fullName,
 				region_id: member.region_id ?? null,
 				division_id: member.division_id ?? null,
-				subdivision_id: subdivisionId || null,
+				subdivision_id: member.subdivision_id ?? null,
 				country: member.country ?? null,
 				countystate: member.countystate ?? null,
 				pilotrating: member.pilotrating ?? null
