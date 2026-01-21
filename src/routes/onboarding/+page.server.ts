@@ -5,7 +5,13 @@ import { fetchVatsimMember, ratingToShortLong } from '$lib/server/vatsimMember';
 import { createAdminClient } from '$lib/server/supabaseAdmin';
 
 const deleteUserCompletely = async (userId: string) => {
-	const admin = createAdminClient();
+	let admin: ReturnType<typeof createAdminClient>;
+	try {
+		admin = createAdminClient();
+	} catch (e) {
+		console.error('Failed to create admin client for account deletion:', e);
+		throw e;
+	}
 	const { error: profileDeleteError } = await admin.from('profiles').delete().eq('id', userId);
 	if (profileDeleteError) console.error('Profile delete failed during rejected-subdivision deletion:', profileDeleteError);
 	try {
@@ -173,23 +179,22 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/');
 		if (!supabase) throw redirect(303, '/');
 
-		let deletionOk = true;
 		try {
-			await supabase.auth.signOut();
-		} catch (e) {
-			console.error('Sign out failed during cancel-registration deletion:', e);
-		}
+			try {
+				await supabase.auth.signOut();
+			} catch (e) {
+				console.error('Sign out failed during cancel-registration deletion:', e);
+			}
 
-		try {
 			await deleteUserCompletely(user.id);
+			throw redirect(303, '/?cancelled=1');
 		} catch (e) {
-			deletionOk = false;
-			console.error('Delete failed during cancel-registration deletion:', e);
+			if (typeof e === 'object' && e && 'status' in e) {
+				const status = Number((e as { status?: number }).status);
+				if (Number.isFinite(status) && status >= 300 && status < 400) throw e;
+			}
+			console.error('Cancel registration failed:', e);
+			throw redirect(303, '/?error=Account%20cancellation%20failed.%20Please%20try%20again.');
 		}
-
-		if (!deletionOk) {
-			throw redirect(303, '/?error=Account%20cancellation%20failed.%20Please%20contact%20support.');
-		}
-		throw redirect(303, '/?cancelled=1');
 	}
 };
