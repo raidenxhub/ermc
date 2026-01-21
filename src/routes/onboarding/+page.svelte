@@ -68,8 +68,27 @@ ssssssssssssssssss    import { browser } from '$app/environment';
         }
     };
 
-=======
->>>>>>> parent of 678cf79 (Polish confirmations, enforce KHLJ-only VATSIM, and improve UI feedback)
+    $: if (!browser) {
+        rejectModalShown = false;
+        deletionTriggered = false;
+    } else if ((form as any)?.rejectedSubdivision && !rejectModalShown) {
+        triggerRejectedAccountDeletion();
+        rejectModalShown = true;
+        const vatsimSubdivisionId = (form as any)?.vatsimSubdivisionId ? String((form as any).vatsimSubdivisionId) : '';
+        const msg =
+            typeof form?.message === 'string' && form.message.trim().length > 0
+                ? form.message
+                : `We do not currently offer our services to your VATSIM subdivision (${vatsimSubdivisionId || 'unknown'}). ERMC is only available for KHLJ at this time.`;
+        confirm({
+            title: 'Subdivision not supported',
+            message: msg + '\n\nYour account will now be deleted and you will be returned to the homepage.',
+            confirmText: 'Return to homepage',
+            showCancel: false,
+            dismissible: false
+        }).then(() => goto('/'));
+    }
+
+
     const onCidInput = (value: string) => {
         cidValue = value;
         if (!browser) return;
