@@ -195,14 +195,95 @@
                 window.location.replace(payload.redirectTo);
                 return;
             }
-            cancelState = 'error';
-            toast.error(payload?.message || 'Cancellation failed.');
-            setTimeout(() => (cancelState = 'idle'), 2000);
-        } catch {
-            cancelState = 'error';
-            toast.error('Cancellation failed.');
-            setTimeout(() => (cancelState = 'idle'), 2000);
-        }
+            if (isStaffChecked && (!positionValue || positionValue.trim().length === 0)) {
+                cancel();
+                submitState = 'error';
+                toast.error('Please enter your staff position.');
+                setTimeout(() => (submitState = 'idle'), 2000);
+                return;
+            }
+            const ok = await confirmCidOnSubmit();
+            if (!ok) {
+                cancel();
+                submitState = 'idle';
+                return;
+            }
+            submitState = 'loading';
+            return async ({ result, update }) => {
+                console.log('[Registration] Result:', result);
+                try {
+                    const type = (result as any)?.type;
+
+                    if (type === 'redirect') {
+                        submitState = 'success';
+                        clearDraft();
+                        const location = (result as { location: string }).location;
+                        await new Promise((r) => setTimeout(r, 450));
+                        window.location.replace(location);
+                        return;
+                    }
+
+                    submitState = 'error';
+                    let errMsg = '';
+
+                    if (type === 'error') {
+                        // Check multiple error paths and prioritize explicit messages
+                        errMsg = typeof (result as any)?.error?.message === 'string' ? String((result as any).error.message) : '';
+                        if (!errMsg && (result as any)?.data?.message) errMsg = (result as any).data.message;
+                        if (!errMsg && (result as any)?.error) errMsg = JSON.stringify((result as any).error);
+                    } else if (type === 'failure') {
+                         errMsg = (result as any).data?.message || '';
+                         if (!errMsg && (result as any)?.data) errMsg = JSON.stringify((result as any).data);
+                    }
+
+                    // Final fallback if errMsg is still empty/undefined
+                    if (!errMsg) {
+                        errMsg = `Unknown error (Type: ${type || 'undefined'})`;
+                        console.error('[Registration] Unknown error result:', result);
+                    }
+
+                    toast.error(errMsg);
+                    setTimeout(() => (submitState = 'idle'), 2000);
+                    
+                    await update({ reset: false });
+                } catch (e) {
+                    console.error('[Registration] Client error:', e);
+                    submitState = 'error';
+                    toast.error(`Registration exception: ${String(e)}`);
+                    setTimeout(() => (submitState = 'idle'), 2000);
+                }
+            };
+        };
+        return enhance(formEl, submit);
+    };
+
+    const useEnhanceCancelRegistration = (formEl: HTMLFormElement) => {
+        if (!browser) return;
+        const submit: SubmitFunction = async ({ cancel: _ }) => {
+            cancelState = 'loading'; // Ensure state is loading when submission actually starts
+            return async ({ result, update }) => {
+                console.log('[CancelRegistration] Result:', result);
+                if (result.type === 'redirect') {
+                    cancelState = 'success';
+                    window.location.replace(result.location);
+                    return;
+                }
+                
+                cancelState = 'error';
+                let msg = 'Cancellation failed.';
+                
+                if (result.type === 'failure') {
+                    msg = (result.data as any)?.message || msg;
+                } else if (result.type === 'error') {
+                    msg = (result.error as any)?.message || msg;
+                }
+                
+                toast.error(msg);
+                setTimeout(() => (cancelState = 'idle'), 2000);
+                await update();
+            };
+        };
+        return enhance(formEl, submit);
     };
 </script>
 
