@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import type { Actions, PageServerLoad } from './$types';
+import type { Actions, PageServerLoad } from '@sveltejs/kit';
 import { env as privateEnv } from '$env/dynamic/private';
 
 export const load: PageServerLoad = async ({ locals: { supabase, user }, url }) => {

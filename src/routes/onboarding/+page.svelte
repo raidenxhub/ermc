@@ -4,6 +4,8 @@
     import { onDestroy, onMount } from 'svelte';
     import { confirm } from '$lib/confirm';
     import { toast } from 'svelte-sonner';
+    import { enhance } from '$app/forms';
+    import type { SubmitFunction } from '$app/forms';
 
     export let form;
     export let data;
@@ -20,7 +22,34 @@
     let fullNameValue = '';
     let isStaffChecked = false;
     let positionValue = '';
-    type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
+    let draftSaveTimer: number | null = null;
+    const draftKey = () => 'onboarding_draft';
+    let termsAccepted = false;
+    const scheduleDraftSave = (payload: Record<string, unknown>) => {
+        if (!browser) return;
+        if (draftSaveTimer) window.clearTimeout(draftSaveTimer);
+        draftSaveTimer = window.setTimeout(() => {
+            try {
+                localStorage.setItem(draftKey(), JSON.stringify(payload));
+            } catch {
+                // ignore
+            }
+        }, 500);
+    };
+    let onboardingForm: HTMLFormElement | null = null;
+    let cancelRegistrationForm: HTMLFormElement | null = null;
+    let cancelState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
+    const clearDraft = () => {
+        if (!browser) return;
+        try {
+            localStorage.removeItem(draftKey());
+        } catch {
+            // ignore
+        }
+    };
+    let showNameInput = false;
+    let nameTouched = false;
+    let showAccessKey = false;
 
     const verifyCid = async (cid: string) => {
         if (!browser) return;
@@ -195,27 +224,24 @@
                 window.location.replace(payload.redirectTo);
                 return;
             }
-            if (isStaffChecked && (!positionValue || positionValue.trim().length === 0)) {
-                cancel();
-                submitState = 'error';
-                toast.error('Please enter your staff position.');
-                setTimeout(() => (submitState = 'idle'), 2000);
-                return;
-            }
-            const ok = await confirmCidOnSubmit();
-            if (!ok) {
-                cancel();
-                submitState = 'idle';
-                return;
-            }
+            cancelState = 'error';
+            toast.error(payload?.message || 'Cancellation failed.');
+            setTimeout(() => (cancelState = 'idle'), 2000);
+        } catch (e) {
+            cancelState = 'error';
+            toast.error('Cancellation failed. Please try again.');
+            setTimeout(() => (cancelState = 'idle'), 2000);
+        }
+    };
+    
+    const useEnhanceOnboarding = (formEl: HTMLFormElement) => {
+        if (!browser) return;
+        onboardingForm = formEl;
+        const submit: SubmitFunction = async ({ cancel: _ }) => {
             submitState = 'loading';
             return async ({ result, update }) => {
-                console.log('[Registration] Raw result:', result);
-                
                 try {
-                    // Force type detection if missing (shouldn't happen with SvelteKit, but safety net)
-                    const type = (result as any)?.type || 'error'; 
-                    
+                    const type = result.type;
                     if (type === 'redirect') {
                         submitState = 'success';
                         clearDraft();
@@ -224,7 +250,6 @@
                         window.location.replace(location);
                         return;
                     }
-
                     if (type === 'success') {
                         submitState = 'success';
                         clearDraft();
@@ -232,29 +257,22 @@
                         window.location.replace('/dashboard');
                         return;
                     }
-
                     submitState = 'error';
                     let errMsg = '';
-
                     if (type === 'error') {
-                        // Check multiple error paths and prioritize explicit messages
                         errMsg = typeof (result as any)?.error?.message === 'string' ? String((result as any).error.message) : '';
                         if (!errMsg && (result as any)?.data?.message) errMsg = (result as any).data.message;
                         if (!errMsg && (result as any)?.error) errMsg = JSON.stringify((result as any).error);
                     } else if (type === 'failure') {
-                         errMsg = (result as any).data?.message || '';
-                         if (!errMsg && (result as any)?.data) errMsg = JSON.stringify((result as any).data);
+                        errMsg = (result as any).data?.message || '';
+                        if (!errMsg && (result as any)?.data) errMsg = JSON.stringify((result as any).data);
                     }
-
-                    // Final fallback if errMsg is still empty/undefined
                     if (!errMsg) {
                         errMsg = `Unknown error (Type: ${type})`;
                         console.error('[Registration] Unknown error result structure:', result);
                     }
-
                     toast.error(errMsg);
                     setTimeout(() => (submitState = 'idle'), 2000);
-                    
                     await update({ reset: false });
                 } catch (e) {
                     console.error('[Registration] Client error:', e);
@@ -401,7 +419,6 @@
                                     If we can’t fetch your name from VATSIM, enter it manually.
                                 </div>
                             {/if}
->>>>>>> parent of 678cf79 (Polish confirmations, enforce KHLJ-only VATSIM, and improve UI feedback)
                         </div>
                         <div class="md:col-span-2 md:max-w-md md:mx-auto">
                             <label class="label" for="subdivision"><span class="label-text">Subdivision</span></label>

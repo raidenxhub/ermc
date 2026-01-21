@@ -1,8 +1,9 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import type { RequestHandler } from '@sveltejs/kit';
 import { createAdminClient } from '$lib/server/supabaseAdmin';
 
-export const POST: RequestHandler = async ({ locals: { user, supabase } }) => {
+export const POST: RequestHandler = async ({ locals }) => {
+	const { user, supabase } = locals as { user: any; supabase: any };
 	if (!user) return json({ ok: false, message: 'Unauthorized' }, { status: 401 });
 	if (!supabase) return json({ ok: false, message: 'Server configuration error.' }, { status: 500 });
 
@@ -37,4 +38,3 @@ export const POST: RequestHandler = async ({ locals: { user, supabase } }) => {
 
 	return json({ ok: true, redirectTo: '/?cancelled=1' });
 };
-

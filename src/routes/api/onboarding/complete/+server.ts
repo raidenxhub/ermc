@@ -1,10 +1,11 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import type { RequestHandler } from '@sveltejs/kit';
 import { env as privateEnv } from '$env/dynamic/private';
 import { createAdminClient } from '$lib/server/supabaseAdmin';
 import { fetchVatsimMember, ratingToShortLong } from '$lib/server/vatsimMember';
 
-export const POST: RequestHandler = async ({ request, locals: { user, supabase } }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
+	const { user, supabase } = locals as { user: any; supabase: any };
 	if (!user) return json({ ok: false, message: 'Unauthorized' }, { status: 401 });
 	if (!supabase) return json({ ok: false, message: 'Server configuration error.' }, { status: 500 });
 
@@ -106,4 +107,3 @@ export const POST: RequestHandler = async ({ request, locals: { user, supabase }
 
 	return json({ ok: true, redirectTo: '/dashboard' });
 };
-

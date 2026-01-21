@@ -38,7 +38,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		event.locals.supabase = null;
 		event.locals.user = null;
 		return resolve(event, {
-			filterSerializedResponseHeaders(name) {
+			filterSerializedResponseHeaders(name: string) {
 				return name === 'content-range' || name === 'x-supabase-api-version';
 			}
 		});
@@ -73,7 +73,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		// Just let resolve handle it, filtering headers.
 		// Protected routes will fail auth check (user=null) and redirect to login.
 		return resolve(event, {
-			filterSerializedResponseHeaders(name) {
+			filterSerializedResponseHeaders(name: string) {
 				return name === 'content-range' || name === 'x-supabase-api-version';
 			}
 		});
@@ -232,7 +232,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	try {
 		return await resolve(event, {
-			filterSerializedResponseHeaders(name) {
+			filterSerializedResponseHeaders(name: string) {
 				return name === 'content-range' || name === 'x-supabase-api-version';
 			}
 		});
