@@ -20,8 +20,6 @@ export const load: PageServerLoad = async ({ locals: { supabase, user } }) => {
 		profile
 	};
 };
-<<<<<<< HEAD
-=======
 
 export const actions: Actions = {
 	default: async ({ request, locals: { supabase, user } }) => {
