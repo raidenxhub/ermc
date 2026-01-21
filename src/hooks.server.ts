@@ -167,7 +167,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 				const onboardingComplete = !!(profile.ermc_access_granted && profile.cid && profile.rating && profile.name);
 				const onboardingIncomplete = !onboardingComplete;
 
-				if (onboardingIncomplete && !allowWhileOnboarding) {
+				if (onboardingIncomplete && requiresAuth && !allowWhileOnboarding) {
 					throw redirect(303, onboardingRedirect());
 				}
 
@@ -180,7 +180,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 				if (isAuthRoute && pathname !== '/auth/logout' && pathname !== '/auth/login') {
 					throw redirect(303, onboardingIncomplete ? '/onboarding' : '/dashboard');
 				}
-			} else if (!profile && !allowWhileOnboarding) {
+			} else if (!profile && requiresAuth && !allowWhileOnboarding) {
 				throw redirect(303, onboardingRedirect());
 			}
 		} catch (e) {
