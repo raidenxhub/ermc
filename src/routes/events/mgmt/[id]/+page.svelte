@@ -35,11 +35,13 @@
 					deleteState = 'success';
 					toast.success('Event deleted');
 					await update();
+					setTimeout(() => (deleteState = 'idle'), 2000);
 					return;
 				}
 				await update();
 				deleteState = 'error';
-				toast.error('Failed to delete event');
+				const message = (result as { data?: { message?: string } }).data?.message || 'Failed to delete event';
+				toast.error(message);
 				setTimeout(() => (deleteState = 'idle'), 2000);
 			};
 		};

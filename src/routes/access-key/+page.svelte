@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
-	import { Check, KeyRound, X } from 'lucide-svelte';
+	import { Check, Eye, EyeOff, KeyRound, X } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
 	export let data: { returnTo: string };
 	export let form: { message?: string } | null = null;
 
 	let submitState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
+	let showAccessKey = false;
 	type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
 
 	const useEnhanceVerify = (formEl: HTMLFormElement) => {
@@ -18,9 +18,10 @@
 			return async ({ result, update }) => {
 				if (result.type === 'redirect') {
 					submitState = 'success';
+					toast.success('Access key verified.');
 					const location = (result as { location: string }).location;
-					await new Promise((r) => setTimeout(r, 2000));
-					await goto(location);
+					await new Promise((r) => setTimeout(r, 1100));
+					window.location.replace(location);
 					return;
 				}
 
@@ -63,7 +64,27 @@
 			<input type="hidden" name="returnTo" value={data.returnTo} />
 			<div class="form-control">
 				<label class="label" for="access_key"><span class="label-text">Access Key</span></label>
-				<input id="access_key" name="access_key" type="password" class="input input-bordered w-full" required />
+				<div class="relative">
+					<input
+						id="access_key"
+						name="access_key"
+						type={showAccessKey ? 'text' : 'password'}
+						class="input input-bordered w-full pr-12"
+						required
+					/>
+					<button
+						type="button"
+						class="btn btn-ghost btn-sm btn-square absolute right-1 top-1/2 -translate-y-1/2"
+						on:click={() => (showAccessKey = !showAccessKey)}
+						title={showAccessKey ? 'Hide access key' : 'Show access key'}
+					>
+						{#if showAccessKey}
+							<EyeOff size={18} />
+						{:else}
+							<Eye size={18} />
+						{/if}
+					</button>
+				</div>
 			</div>
 
 			<button

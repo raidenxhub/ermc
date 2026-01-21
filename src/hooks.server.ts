@@ -111,8 +111,25 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const allowWhileOnboarding = isApi || isStaticAsset || isAuthRoute || isConsentRoute || isOnboardingRoute;
 	const onboardingRedirect = () => {
 		const next = encodeURIComponent(event.url.pathname + event.url.search);
-		return `/onboarding?toast=complete_onboarding&next=${next}`;
+		return `/onboarding?next=${next}`;
 	};
+
+	if (event.locals.user && !isApi && !isAuthRoute) {
+		try {
+			const { data: profile, error } = await event.locals.supabase!.from('profiles').select('id').eq('id', event.locals.user.id).maybeSingle();
+
+			if (!error && !profile) {
+				try {
+					await event.locals.supabase!.auth.signOut();
+				} catch (e) {
+					console.error('Sign out failed during missing-profile recovery:', e);
+				}
+				throw redirect(303, '/auth/login?next=/onboarding');
+			}
+		} catch (e) {
+			if ((e as { status?: number })?.status === 303) throw e;
+		}
+	}
 
 	if (requiresAuth) {
 		if (!event.locals.user) {
@@ -178,7 +195,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 				if (isAccessKeyRoute) throw redirect(303, onboardingRedirect());
 
 				if (isAuthRoute && pathname !== '/auth/logout' && pathname !== '/auth/login') {
-					throw redirect(303, onboardingIncomplete ? '/onboarding' : '/dashboard');
+					throw redirect(303, onboardingIncomplete ? onboardingRedirect() : '/dashboard');
 				}
 			} else if (!profile && requiresAuth && !allowWhileOnboarding) {
 				throw redirect(303, onboardingRedirect());

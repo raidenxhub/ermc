@@ -53,10 +53,13 @@
             await update({ reset: false });
             if (result.type === 'success') {
                 setKnockState(toUserId, 'success');
+                toast.success('Knock sent.');
                 setTimeout(() => setKnockState(toUserId, 'idle'), 2000);
                 return;
             }
             setKnockState(toUserId, 'error');
+            const message = (result as { data?: { message?: string } }).data?.message || 'Failed to knock.';
+            toast.error(message);
             setTimeout(() => setKnockState(toUserId, 'idle'), 2000);
         };
     };

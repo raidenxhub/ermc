@@ -1,10 +1,10 @@
 <script lang="ts">
     import { browser } from '$app/environment';
     import { enhance } from '$app/forms';
-    import { goto, invalidateAll } from '$app/navigation';
-    import { UserPlus, Check, X } from 'lucide-svelte';
+    import { UserPlus, Check, X, Eye, EyeOff } from 'lucide-svelte';
     import { onDestroy, onMount } from 'svelte';
     import { confirm } from '$lib/confirm';
+    import { toast } from 'svelte-sonner';
 
     export let form;
     export let data;
@@ -22,6 +22,7 @@
     let isStaffChecked = false;
     let positionValue = '';
     let termsAccepted = false;
+    let showAccessKey = false;
     let cancelState: 'idle' | 'loading' | 'success' | 'error' = 'idle';
     let rejectModalShown = false;
     let deletionTriggered = false;
@@ -238,12 +239,14 @@
             if (cidVerifyState !== 'success' || cidVerifiedValue !== cidValue.trim()) {
                 cancel();
                 submitState = 'error';
+                toast.error('Please verify your CID before continuing.');
                 setTimeout(() => (submitState = 'idle'), 2000);
                 return;
             }
             if (isStaffChecked && (!positionValue || positionValue.trim().length === 0)) {
                 cancel();
                 submitState = 'error';
+                toast.error('Please enter your staff position.');
                 setTimeout(() => (submitState = 'idle'), 2000);
                 return;
             }
@@ -259,9 +262,8 @@
                     submitState = 'success';
                     clearDraft();
                     const location = (result as { location: string }).location;
-                    await new Promise((r) => setTimeout(r, 650));
-                    await invalidateAll();
-                    await goto(location);
+                    await new Promise((r) => setTimeout(r, 1100));
+                    window.location.replace(location);
                     return;
                 }
 
@@ -269,6 +271,8 @@
 
                 if (result.type === 'failure') {
                     submitState = 'error';
+                    const message = (result as any).data?.message || 'Registration failed.';
+                    toast.error(message);
                     setTimeout(() => (submitState = 'idle'), 2000);
                     return;
                 }
@@ -307,6 +311,8 @@
                 }
                 await update({ reset: false });
                 cancelState = 'error';
+                const message = (result as any).data?.message || 'Failed to cancel registration.';
+                toast.error(message);
                 setTimeout(() => (cancelState = 'idle'), 2000);
             };
         };
@@ -439,7 +445,27 @@
 
                     <div class="form-control">
                         <label class="label" for="access_key"><span class="label-text">Access Key</span></label>
-                        <input name="access_key" id="access_key" type="password" class="input input-bordered w-full" required />
+                        <div class="relative">
+                            <input
+                                name="access_key"
+                                id="access_key"
+                                type={showAccessKey ? 'text' : 'password'}
+                                class="input input-bordered w-full pr-12"
+                                required
+                            />
+                            <button
+                                type="button"
+                                class="btn btn-ghost btn-sm btn-square absolute right-1 top-1/2 -translate-y-1/2"
+                                on:click={() => (showAccessKey = !showAccessKey)}
+                                title={showAccessKey ? 'Hide access key' : 'Show access key'}
+                            >
+                                {#if showAccessKey}
+                                    <EyeOff size={18} />
+                                {:else}
+                                    <Eye size={18} />
+                                {/if}
+                            </button>
+                        </div>
                     </div>
 
                     <div class="form-control">

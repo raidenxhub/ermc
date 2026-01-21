@@ -8,7 +8,7 @@
   import CookieConsent from '$lib/components/CookieConsent.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import { navigating, page } from '$app/stores';
-  import { invalidate, invalidateAll } from '$app/navigation';
+  import { beforeNavigate, goto, invalidate, invalidateAll } from '$app/navigation';
   import { browser } from '$app/environment';
   import { eventsSyncing } from '$lib/stores/eventsSync';
 
@@ -45,14 +45,39 @@
 
   $: pageTitle = titleForPath($page.url.pathname);
 
-  onMount(() => {
-    if (!supabase) return;
+  const isOnboardingComplete = (u: any) => !!(u?.ermc_access_granted && u?.cid && u?.rating && u?.name);
+  const isProtectedPath = (pathname: string) =>
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/rostering') ||
+    pathname.startsWith('/events') ||
+    pathname.startsWith('/coordination') ||
+    pathname.startsWith('/settings') ||
+    pathname.startsWith('/statistics');
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, _session) => {
-      void event;
-      void _session;
-      invalidate('supabase:auth');
-    });
+  onMount(() => {
+    if (browser) {
+      beforeNavigate(({ to, cancel, type }) => {
+        if (!to) return;
+        if (type !== 'link' && type !== 'popstate') return;
+        const pathname = to.url.pathname;
+        const allow = pathname.startsWith('/api/') || pathname.startsWith('/_app/') || pathname.startsWith('/auth/') || pathname.startsWith('/oauth/') || pathname.startsWith('/onboarding');
+        if (!isProtectedPath(pathname) || allow) return;
+        if (user && !isOnboardingComplete(user)) {
+          cancel();
+          toast.warning('Complete your onboarding before attempting to access other pages.');
+          const next = encodeURIComponent(to.url.pathname + to.url.search);
+          void goto(`/onboarding?next=${next}`);
+        }
+      });
+    }
+
+    const subscription = supabase
+      ? supabase.auth.onAuthStateChange((event, _session) => {
+          void event;
+          void _session;
+          invalidate('supabase:auth');
+        }).data.subscription
+      : null;
 
     const pageUnsub = page.subscribe((p) => {
       const msg = p.url.searchParams.get('error');
@@ -64,16 +89,11 @@
       history.replaceState({}, '', next.pathname + (next.searchParams.toString() ? `?${next.searchParams.toString()}` : '') + next.hash);
     });
 
-    const toastUnsub = page.subscribe((p) => {
-      const key = p.url.searchParams.get('toast');
-      if (!key) return;
-      if (key === 'complete_onboarding') toast.warning('Complete your onboarding before attempting to access other pages.');
-      if (!browser) return;
-      const next = new URL(p.url.toString());
-      next.searchParams.delete('toast');
-      next.searchParams.delete('next');
-      history.replaceState({}, '', next.pathname + (next.searchParams.toString() ? `?${next.searchParams.toString()}` : '') + next.hash);
-    });
+    if (!supabase) {
+      return () => {
+        pageUnsub();
+      };
+    }
 
     const channel = supabase
       .channel('events:global')
@@ -106,9 +126,8 @@
 
     return () => {
       window.clearInterval(pollInterval);
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
       pageUnsub();
-      toastUnsub();
       supabase.removeChannel(channel);
     };
   });
