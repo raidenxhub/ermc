@@ -42,21 +42,21 @@
 
 <main class="flex flex-col">
     <section class="min-h-dvh">
-        <div class="container mx-auto px-4 pt-10 pb-10 md:pt-12 md:pb-12">
+        <div class="container mx-auto px-4 pt-16 pb-16 md:pt-20">
             <div class="mx-auto w-full max-w-lg">
-                <div class="mb-4 text-center">
-                    <h1 class="text-3xl font-bold text-white md:text-5xl">Contact Us</h1>
-                    <p class="mt-2 text-gray-300">
+                <div class="mb-8 text-center">
+                    <h1 class="text-4xl font-bold text-white md:text-5xl">Contact Us</h1>
+                    <p class="mt-3 text-gray-300">
                         Have a question, inquiry, or partnership proposal? Send us a message and we'll get back to you.
                     </p>
-                    <div class="mt-3 inline-flex items-center gap-2 text-sm text-gray-400 bg-black/30 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
+                    <div class="mt-4 inline-flex items-center gap-2 text-sm text-gray-400 bg-black/30 px-4 py-2 rounded-full backdrop-blur-sm border border-white/10">
                         <Mail size={16} />
                         <a href="mailto:ermc@realkenan.dev" class="hover:text-white transition-colors">ermc@realkenan.dev</a>
                     </div>
                 </div>
 
                 <div class="card w-full bg-base-100 shadow-xl">
-                    <div class="card-body p-5 sm:p-6">
+                    <div class="card-body">
                         {#if form?.success}
                             <div role="alert" class="alert alert-success mb-4">
                                 <Check size={18} />
@@ -68,26 +68,26 @@
                                 <span>{form.error}</span>
                             </div>
                         {/if}
-                        <form method="POST" use:useEnhanceContact class="space-y-3">
+                        <form method="POST" use:useEnhanceContact class="space-y-4">
                             <div class="form-control">
                                 <label class="label" for="name">
                                     <span class="label-text">Name</span>
                                 </label>
-                                <input id="name" type="text" name="name" placeholder="Your Name" class="input input-bordered input-sm" required />
+                                <input id="name" type="text" name="name" placeholder="Your Name" class="input input-bordered" required />
                             </div>
 
                             <div class="form-control">
                                 <label class="label" for="email">
                                     <span class="label-text">Email</span>
                                 </label>
-                                <input id="email" type="email" name="email" placeholder="email@example.com" class="input input-bordered input-sm" required />
+                                <input id="email" type="email" name="email" placeholder="email@example.com" class="input input-bordered" required />
                             </div>
 
                             <div class="form-control">
                                 <label class="label" for="subject">
                                     <span class="label-text">Subject</span>
                                 </label>
-                                <select id="subject" name="subject" class="select select-bordered select-sm" bind:value={selectedSubject} required>
+                                <select id="subject" name="subject" class="select select-bordered" bind:value={selectedSubject} required>
                                     <option value="" disabled selected>Select a subject</option>
                                     <option value="General Inquiry">General Inquiry</option>
                                     <option value="Partnership">Partnership Proposal</option>
@@ -103,28 +103,28 @@
                                     <label class="label" for="subdivision">
                                         <span class="label-text">Subdivision / vACC</span>
                                     </label>
-                                    <input id="subdivision" type="text" name="subdivision" placeholder="e.g. Khaleej vACC" class="input input-bordered input-sm" required />
+                                    <input id="subdivision" type="text" name="subdivision" placeholder="e.g. Khaleej vACC" class="input input-bordered" required />
                                 </div>
 
                                 <div class="form-control">
                                     <label class="label" for="position">
                                         <span class="label-text">Your Position</span>
                                     </label>
-                                    <input id="position" type="text" name="position" placeholder="e.g. Events Director" class="input input-bordered input-sm" required />
+                                    <input id="position" type="text" name="position" placeholder="e.g. Events Director" class="input input-bordered" required />
                                 </div>
 
                                 <div class="form-control">
                                     <label class="label" for="website">
                                         <span class="label-text">Website</span>
                                     </label>
-                                    <input id="website" type="url" name="website" placeholder="https://..." class="input input-bordered input-sm" required />
+                                    <input id="website" type="url" name="website" placeholder="https://..." class="input input-bordered" required />
                                 </div>
 
                                 <div class="form-control">
                                     <label class="label" for="discord">
                                         <span class="label-text">Discord Server Invite</span>
                                     </label>
-                                    <input id="discord" type="url" name="discord" placeholder="https://discord.gg/..." class="input input-bordered input-sm" required />
+                                    <input id="discord" type="url" name="discord" placeholder="https://discord.gg/..." class="input input-bordered" required />
                                 </div>
                             {/if}
                             </div>
@@ -133,12 +133,12 @@
                                 <label class="label" for="message">
                                     <span class="label-text">Message</span>
                                 </label>
-                                <textarea id="message" name="message" class="textarea textarea-bordered textarea-sm h-24" placeholder="Your message..." required></textarea>
+                                <textarea id="message" name="message" class="textarea textarea-bordered h-32" placeholder="Your message..." required></textarea>
                             </div>
 
-                            <div class="form-control mt-4">
+                            <div class="form-control mt-6">
                                 <button
-                                    class="btn btn-sm ermc-state-btn {submitState === 'success' ? 'ermc-success-btn' : submitState === 'error' ? 'btn-error' : 'btn-primary'}"
+                                    class="btn ermc-state-btn {submitState === 'success' ? 'ermc-success-btn' : submitState === 'error' ? 'btn-error' : 'btn-primary'}"
                                     disabled={submitState === 'loading' || submitState === 'success'}
                                 >
                                     {#if submitState === 'loading'}

@@ -1,6 +1,5 @@
 <script lang="ts">
-    import { browser } from '$app/environment';
-    import { enhance } from '$app/forms';
+ssssssssssssssssss    import { browser } from '$app/environment';
     import { UserPlus, Check, X, Eye, EyeOff } from 'lucide-svelte';
     import { onDestroy, onMount } from 'svelte';
     import { confirm } from '$lib/confirm';
@@ -27,8 +26,7 @@
     let rejectModalShown = false;
     let deletionTriggered = false;
     let draftSaveTimer: number | null = null;
-    let cancelRegistrationForm: HTMLFormElement | null = null;
-    type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
+    let onboardingForm: HTMLFormElement | null = null;
 
     const draftKey = () => `ermc:onboardingDraft:${String(data?.user?.id || 'anon')}`;
     const clearDraft = () => {
@@ -233,9 +231,76 @@
         return confirm({ title: 'Confirm your CID', message, confirmText: 'Continue', cancelText: 'Cancel' });
     };
 
+    const postFormData = async (url: string, formData: FormData, timeoutMs = 15000) => {
+        const controller = new AbortController();
+        const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, { method: 'POST', body: formData, signal: controller.signal });
+            const payload = await res.json().catch(() => null);
+            return { res, payload };
+        } finally {
+            window.clearTimeout(timer);
+        }
+    };
+
+    const postJson = async (url: string, timeoutMs = 15000) => {
+        const controller = new AbortController();
+        const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}', signal: controller.signal });
+            const payload = await res.json().catch(() => null);
+            return { res, payload };
+        } finally {
+            window.clearTimeout(timer);
+        }
+    };
+
+    const handleCompleteRegistration = async () => {
+        if (!browser) return;
+        if (!onboardingForm) return;
+        if (submitState === 'loading' || submitState === 'success') return;
+
+        if (cidVerifyState !== 'success' || cidVerifiedValue !== cidValue.trim()) {
+            submitState = 'error';
+            toast.error('Please verify your CID before continuing.');
+            setTimeout(() => (submitState = 'idle'), 2000);
+            return;
+        }
+
+        if (isStaffChecked && (!positionValue || positionValue.trim().length === 0)) {
+            submitState = 'error';
+            toast.error('Please enter your staff position.');
+            setTimeout(() => (submitState = 'idle'), 2000);
+            return;
+        }
+
+        const ok = await confirmCidOnSubmit();
+        if (!ok) return;
+
+        submitState = 'loading';
+        try {
+            const formData = new FormData(onboardingForm);
+            const { res, payload } = await postFormData('/api/onboarding/complete', formData);
+            if (res.ok && payload?.ok && typeof payload.redirectTo === 'string') {
+                submitState = 'success';
+                clearDraft();
+                await new Promise((r) => setTimeout(r, 300));
+                window.location.replace(payload.redirectTo);
+                return;
+            }
+            const msg = payload?.message || 'Registration failed. Please try again.';
+            submitState = 'error';
+            toast.error(msg);
+            setTimeout(() => (submitState = 'idle'), 2000);
+        } catch (e) {
+            submitState = 'error';
+            toast.error('Registration failed. Please try again.');
+            setTimeout(() => (submitState = 'idle'), 2000);
+        }
+    };
+
     const handleCancelRegistration = async () => {
         if (!browser) return;
-        if (!cancelRegistrationForm) return;
         if (cancelState === 'loading' || cancelState === 'success') return;
         
         const ok = await confirm({
@@ -247,117 +312,22 @@
         if (!ok) return;
 
         cancelState = 'loading';
-        cancelRegistrationForm.requestSubmit();
-    };
-    const useEnhanceOnboarding = (formEl: HTMLFormElement) => {
-        if (!browser) return;
-        const submit: SubmitFunction = async ({ cancel }) => {
-            if (cidVerifyState !== 'success' || cidVerifiedValue !== cidValue.trim()) {
-                cancel();
-                submitState = 'error';
-                toast.error('Please verify your CID before continuing.');
-                setTimeout(() => (submitState = 'idle'), 2000);
+        try {
+            const { res, payload } = await postJson('/api/account/cancel');
+            if (res.ok && payload?.ok && typeof payload.redirectTo === 'string') {
+                cancelState = 'success';
+                clearDraft();
+                window.location.replace(payload.redirectTo);
                 return;
             }
-            if (isStaffChecked && (!positionValue || positionValue.trim().length === 0)) {
-                cancel();
-                submitState = 'error';
-                toast.error('Please enter your staff position.');
-                setTimeout(() => (submitState = 'idle'), 2000);
-                return;
-            }
-            const ok = await confirmCidOnSubmit();
-            if (!ok) {
-                cancel();
-                submitState = 'idle';
-                return;
-            }
-            submitState = 'loading';
-            return async ({ result, update }) => {
-                console.log('[Registration] Raw result:', result);
-                
-                try {
-                    // Force type detection if missing (shouldn't happen with SvelteKit, but safety net)
-                    const type = (result as any)?.type || 'error'; 
-                    
-                    if (type === 'redirect') {
-                        submitState = 'success';
-                        clearDraft();
-                        const location = (result as { location: string }).location;
-                        await new Promise((r) => setTimeout(r, 450));
-                        window.location.replace(location);
-                        return;
-                    }
-
-                    if (type === 'success') {
-                        submitState = 'success';
-                        clearDraft();
-                        await new Promise((r) => setTimeout(r, 450));
-                        window.location.replace('/dashboard');
-                        return;
-                    }
-
-                    submitState = 'error';
-                    let errMsg = '';
-
-                    if (type === 'error') {
-                        // Check multiple error paths and prioritize explicit messages
-                        errMsg = typeof (result as any)?.error?.message === 'string' ? String((result as any).error.message) : '';
-                        if (!errMsg && (result as any)?.data?.message) errMsg = (result as any).data.message;
-                        if (!errMsg && (result as any)?.error) errMsg = JSON.stringify((result as any).error);
-                    } else if (type === 'failure') {
-                         errMsg = (result as any).data?.message || '';
-                         if (!errMsg && (result as any)?.data) errMsg = JSON.stringify((result as any).data);
-                    }
-
-                    // Final fallback if errMsg is still empty/undefined
-                    if (!errMsg) {
-                        errMsg = `Unknown error (Type: ${type})`;
-                        console.error('[Registration] Unknown error result structure:', result);
-                    }
-
-                    toast.error(errMsg);
-                    setTimeout(() => (submitState = 'idle'), 2000);
-                    
-                    await update({ reset: false });
-                } catch (e) {
-                    console.error('[Registration] Client error:', e);
-                    submitState = 'error';
-                    toast.error(`Registration exception: ${String(e)}`);
-                    setTimeout(() => (submitState = 'idle'), 2000);
-                }
-            };
-        };
-        return enhance(formEl, submit);
-    };
-
-    const useEnhanceCancelRegistration = (formEl: HTMLFormElement) => {
-        if (!browser) return;
-        const submit: SubmitFunction = async ({ cancel: _ }) => {
-            cancelState = 'loading'; // Ensure state is loading when submission actually starts
-            return async ({ result, update }) => {
-                console.log('[CancelRegistration] Result:', result);
-                if (result.type === 'redirect') {
-                    cancelState = 'success';
-                    window.location.replace(result.location);
-                    return;
-                }
-                
-                cancelState = 'error';
-                let msg = 'Cancellation failed.';
-                
-                if (result.type === 'failure') {
-                    msg = (result.data as any)?.message || msg;
-                } else if (result.type === 'error') {
-                    msg = (result.error as any)?.message || msg;
-                }
-                
-                toast.error(msg);
-                setTimeout(() => (cancelState = 'idle'), 2000);
-                await update();
-            };
-        };
-        return enhance(formEl, submit);
+            cancelState = 'error';
+            toast.error(payload?.message || 'Cancellation failed.');
+            setTimeout(() => (cancelState = 'idle'), 2000);
+        } catch {
+            cancelState = 'error';
+            toast.error('Cancellation failed.');
+            setTimeout(() => (cancelState = 'idle'), 2000);
+        }
     };
 </script>
 
