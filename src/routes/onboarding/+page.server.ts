@@ -110,11 +110,14 @@ export const actions: Actions = {
 			const email = user.email || user.user_metadata?.email || null;
 
 			const nowIso = new Date().toISOString();
+			
+			// Use upsert instead of update to ensure row exists and avoid race conditions
 			const { error } = await supabase
 				.from('profiles')
-				.update({
+				.upsert({
+					id: user.id, // Explicitly provide ID for upsert
 					name: fullName,
-					email,
+					email: email || null,
 					cid,
 					rating,
 					rating_short,
@@ -128,32 +131,22 @@ export const actions: Actions = {
 					subdivision,
 					role: isStaff ? 'staff' : 'guest',
 					position,
-					updated_at: nowIso
-				})
-				.eq('id', user.id);
+					updated_at: nowIso,
+					ermc_access_granted: true,
+					ermc_access_verified_at: nowIso
+				}, { onConflict: 'id' });
 
 			if (error) {
-				const errorId =
-					typeof globalThis !== 'undefined' && (globalThis as any)?.crypto?.randomUUID
-						? (globalThis as any).crypto.randomUUID()
-						: String(Date.now());
-				console.error('Profile update failed:', errorId, error);
+				const errorId = crypto.randomUUID();
+				console.error('Profile upsert failed:', errorId, error);
+				// If error is 23505 (unique violation), it might be CID collision if CID is unique
+				if (error.code === '23505' && error.message?.includes('cid')) {
+					return fail(400, { message: 'This CID is already registered to another user.' });
+				}
 				return fail(500, { message: `Failed to save profile. (Error: ${errorId})` });
 			}
 
-			try {
-				await supabase
-					.from('profiles')
-					.update({ ermc_access_granted: true, ermc_access_verified_at: nowIso, updated_at: nowIso })
-					.eq('id', user.id);
-			} catch (e) {
-				const errorId =
-					typeof globalThis !== 'undefined' && (globalThis as any)?.crypto?.randomUUID
-						? (globalThis as any).crypto.randomUUID()
-						: String(Date.now());
-				console.error('Failed to set access key flags:', errorId, e);
-			}
-
+			// Removed separate update for access_granted since we included it in upsert
 			throw redirect(303, '/dashboard');
 		} catch (e) {
 			if (typeof e === 'object' && e && 'status' in e) {
@@ -223,6 +216,13 @@ export const actions: Actions = {
 				const s = (e as any).status;
 				if (s >= 300 && s < 400) throw e;
 			}
+
+            // Check if user is already deleted (e.g. invalid grant or user not found)
+            const errString = String(e);
+            if (errString.includes('User not found') || errString.includes('Auth session missing')) {
+                console.warn('[cancelRegistration] User likely already deleted:', e);
+                throw redirect(303, '/?cancelled=1');
+            }
 
 			const errorId = crypto.randomUUID();
 			console.error('[cancelRegistration] Unexpected error:', errorId, e);
