@@ -45,7 +45,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	try {
-		const supabaseUrl = (env.PUBLIC_SUPABASE_URL || '').trim().replace(/^["']|["']$/g, '');
+		let supabaseUrl = (env.PUBLIC_SUPABASE_URL || '').trim().replace(/^["']|["']$/g, '');
+		if (supabaseUrl && !supabaseUrl.startsWith('http')) {
+			supabaseUrl = `https://${supabaseUrl}`;
+		}
 		const supabaseAnonKey = (env.PUBLIC_SUPABASE_ANON_KEY || '').trim().replace(/^["']|["']$/g, '');
 
 		event.locals.supabase = createServerClient(supabaseUrl, supabaseAnonKey, {

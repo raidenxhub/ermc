@@ -10,10 +10,13 @@ export function createAdminClient() {
 		throw new Error('Missing SUPABASE_SERVICE_ROLE');
 	}
 
-	const supabaseUrl = (privateEnv.PUBLIC_SUPABASE_URL || publicEnv.PUBLIC_SUPABASE_URL)?.trim()?.replace(/^["']|["']$/g, '');
+	let supabaseUrl = (privateEnv.PUBLIC_SUPABASE_URL || publicEnv.PUBLIC_SUPABASE_URL)?.trim()?.replace(/^["']|["']$/g, '');
 	if (!supabaseUrl) {
 		console.error('[createAdminClient] Missing PUBLIC_SUPABASE_URL env var');
 		throw new Error('Missing PUBLIC_SUPABASE_URL');
+	}
+	if (!supabaseUrl.startsWith('http')) {
+		supabaseUrl = `https://${supabaseUrl}`;
 	}
 
 	try {
@@ -31,8 +34,11 @@ export function createSecretClient() {
 	const secretKey = privateEnv.SUPABASE_SECRET_KEY?.trim()?.replace(/^["']|["']$/g, '');
 	if (!secretKey) throw new Error('Missing SUPABASE_SECRET_KEY');
 
-	const supabaseUrl = (privateEnv.PUBLIC_SUPABASE_URL || publicEnv.PUBLIC_SUPABASE_URL)?.trim()?.replace(/^["']|["']$/g, '');
+	let supabaseUrl = (privateEnv.PUBLIC_SUPABASE_URL || publicEnv.PUBLIC_SUPABASE_URL)?.trim()?.replace(/^["']|["']$/g, '');
 	if (!supabaseUrl) throw new Error('Missing PUBLIC_SUPABASE_URL');
+	if (!supabaseUrl.startsWith('http')) {
+		supabaseUrl = `https://${supabaseUrl}`;
+	}
 
 	return createClient(supabaseUrl, secretKey, {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
