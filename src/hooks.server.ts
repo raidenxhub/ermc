@@ -45,7 +45,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	try {
-		event.locals.supabase = createServerClient(env.PUBLIC_SUPABASE_URL!, env.PUBLIC_SUPABASE_ANON_KEY!, {
+		const supabaseUrl = (env.PUBLIC_SUPABASE_URL || '').trim().replace(/^["']|["']$/g, '');
+		const supabaseAnonKey = (env.PUBLIC_SUPABASE_ANON_KEY || '').trim().replace(/^["']|["']$/g, '');
+
+		event.locals.supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
 			cookies: {
 				getAll: () => event.cookies.getAll(),
 				setAll: (cookiesToSet) => {
@@ -63,6 +66,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 		console.error('Failed to create Supabase client:', error);
 		event.locals.supabase = null;
 		event.locals.user = null;
+		// If client creation failed, we can't continue with anything that needs DB
+		// Just let resolve handle it, filtering headers.
+		// Protected routes will fail auth check (user=null) and redirect to login.
 		return resolve(event, {
 			filterSerializedResponseHeaders(name) {
 				return name === 'content-range' || name === 'x-supabase-api-version';
@@ -75,11 +81,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 	 * `supabase.auth.getUser()` validates the auth token on the server.
 	 */
 	try {
-		const {
-			data: { user }
-		} = await event.locals.supabase!.auth.getUser();
+		if (event.locals.supabase) {
+			const {
+				data: { user }
+			} = await event.locals.supabase.auth.getUser();
 
-		event.locals.user = user;
+			event.locals.user = user;
+		} else {
+			event.locals.user = null;
+		}
 	} catch (error) {
 		console.error('Auth getUser error:', error);
 		event.locals.user = null;
