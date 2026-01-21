@@ -5,19 +5,18 @@ import { fetchVatsimMember, ratingToShortLong } from '$lib/server/vatsimMember';
 import { createAdminClient } from '$lib/server/supabaseAdmin';
 
 const deleteUserCompletely = async (userId: string) => {
-	let admin: ReturnType<typeof createAdminClient>;
 	try {
-		admin = createAdminClient();
+		console.log(`[deleteUserCompletely] Starting deletion for user ${userId}`);
+		const admin = createAdminClient();
+		const { error: deleteUserError } = await admin.auth.admin.deleteUser(userId);
+		if (deleteUserError) {
+			console.error(`[deleteUserCompletely] Failed to delete auth user ${userId}:`, deleteUserError);
+			throw deleteUserError;
+		}
+		console.log(`[deleteUserCompletely] Successfully deleted auth user ${userId}`);
 	} catch (e) {
-		console.error('Failed to create admin client for account deletion:', e);
+		console.error(`[deleteUserCompletely] Exception while deleting user ${userId}:`, e);
 		throw e;
-	}
-	const { error: profileDeleteError } = await admin.from('profiles').delete().eq('id', userId);
-	if (profileDeleteError) console.error('Profile delete failed during rejected-subdivision deletion:', profileDeleteError);
-	try {
-		await admin.auth.admin.deleteUser(userId);
-	} catch (e) {
-		console.error('Auth delete failed during rejected-subdivision deletion:', e);
 	}
 };
 
@@ -191,43 +190,43 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/');
 		if (!supabase) throw redirect(303, '/');
 
+		console.log('[cancelRegistration] Started for user', user.id);
+
 		try {
 			if (!privateEnv.SUPABASE_SERVICE_ROLE) {
-				const errorId =
-					typeof globalThis !== 'undefined' && (globalThis as any)?.crypto?.randomUUID
-						? (globalThis as any).crypto.randomUUID()
-						: String(Date.now());
-				console.error('Cancel registration missing SUPABASE_SERVICE_ROLE:', errorId);
+				const errorId = crypto.randomUUID();
+				console.error('[cancelRegistration] Missing SUPABASE_SERVICE_ROLE:', errorId);
+				// Try to sign out at least
 				try {
 					await supabase.auth.signOut();
 				} catch (e) {
-					console.error('Sign out failed during missing-service-role cancel:', e);
+					console.error('Sign out failed:', e);
 				}
-				throw redirect(
-					303,
-					`/?error=${encodeURIComponent(`Account cancellation is temporarily unavailable. Please contact support. (Error: ${errorId})`)}`
-				);
+				throw redirect(303, `/?error=${encodeURIComponent(`Service configuration error. (Error: ${errorId})`)}`);
 			}
 
+			// Sign out first
 			try {
 				await supabase.auth.signOut();
 			} catch (e) {
-				console.error('Sign out failed during cancel-registration deletion:', e);
+				console.error('[cancelRegistration] Sign out failed:', e);
 			}
 
+			// Then delete
 			await deleteUserCompletely(user.id);
+
+			console.log('[cancelRegistration] Success, redirecting to home');
 			throw redirect(303, '/?cancelled=1');
 		} catch (e) {
-			if (typeof e === 'object' && e && 'status' in e) {
-				const status = Number((e as { status?: number }).status);
-				if (Number.isFinite(status) && status >= 300 && status < 400) throw e;
+			// Rethrow redirects
+			if (e && typeof e === 'object' && 'status' in e) {
+				const s = (e as any).status;
+				if (s >= 300 && s < 400) throw e;
 			}
-			const errorId =
-				typeof globalThis !== 'undefined' && (globalThis as any)?.crypto?.randomUUID
-					? (globalThis as any).crypto.randomUUID()
-					: String(Date.now());
-			console.error('Cancel registration failed:', errorId, e);
-			throw redirect(303, `/?error=${encodeURIComponent(`Account cancellation failed. Please try again. (Error: ${errorId})`)}`);
+
+			const errorId = crypto.randomUUID();
+			console.error('[cancelRegistration] Unexpected error:', errorId, e);
+			throw redirect(303, `/?error=${encodeURIComponent(`Cancellation failed. (Error: ${errorId})`)}`);
 		}
 	}
 };

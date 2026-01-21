@@ -120,15 +120,20 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 			if (!error && !profile) {
 				try {
-					const admin = createAdminClient();
-					const email = typeof event.locals.user.email === 'string' ? event.locals.user.email : null;
-					const fullName =
-						typeof (event.locals.user as any)?.user_metadata?.full_name === 'string'
-							? String((event.locals.user as any).user_metadata.full_name)
-							: typeof (event.locals.user as any)?.user_metadata?.name === 'string'
-								? String((event.locals.user as any).user_metadata.name)
-								: null;
-					await admin.from('profiles').upsert({ id: event.locals.user.id, email, name: fullName }, { onConflict: 'id' });
+					// Guard this call to prevent crashing if env vars are bad
+					try {
+						const admin = createAdminClient();
+						const email = typeof event.locals.user.email === 'string' ? event.locals.user.email : null;
+						const fullName =
+							typeof (event.locals.user as any)?.user_metadata?.full_name === 'string'
+								? String((event.locals.user as any).user_metadata.full_name)
+								: typeof (event.locals.user as any)?.user_metadata?.name === 'string'
+									? String((event.locals.user as any).user_metadata.name)
+									: null;
+						await admin.from('profiles').upsert({ id: event.locals.user.id, email, name: fullName }, { onConflict: 'id' });
+					} catch (adminError) {
+						console.error('Failed to init admin client or create profile (check env vars):', adminError);
+					}
 				} catch (e) {
 					console.error('Failed to auto-create missing profile row:', e);
 				}

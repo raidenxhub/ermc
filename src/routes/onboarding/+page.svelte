@@ -271,22 +271,25 @@
                     }
 
                     if (type === 'error') {
-                        submitState = 'error';
-                        const errMsg = typeof (result as any)?.error?.message === 'string' ? String((result as any).error.message) : '';
-                        toast.error(errMsg ? `Registration failed: ${errMsg}` : 'Registration failed. Please try again.');
-                        setTimeout(() => (submitState = 'idle'), 2000);
-                        return;
-                    }
+                    submitState = 'error';
+                    // Try to get message from error object or fallback to result.data or generic
+                    let errMsg = typeof (result as any)?.error?.message === 'string' ? String((result as any).error.message) : '';
+                    if (!errMsg && (result as any)?.data?.message) errMsg = (result as any).data.message;
+                    
+                    toast.error(errMsg || 'Registration failed. Please try again.');
+                    setTimeout(() => (submitState = 'idle'), 2000);
+                    return;
+                }
 
-                    await update({ reset: false });
+                await update({ reset: false });
 
-                    if (type === 'failure') {
-                        submitState = 'error';
-                        const message = (result as any).data?.message || 'Registration failed.';
-                        toast.error(message);
-                        setTimeout(() => (submitState = 'idle'), 2000);
-                        return;
-                    }
+                if (type === 'failure') {
+                    submitState = 'error';
+                    const message = (result as any).data?.message || 'Registration failed.';
+                    toast.error(message);
+                    setTimeout(() => (submitState = 'idle'), 2000);
+                    return;
+                }
 
                     if (type === 'success') {
                         submitState = 'success';
