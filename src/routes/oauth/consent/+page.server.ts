@@ -7,9 +7,19 @@ export const load: PageServerLoad = async ({ locals: { supabase, user }, url }) 
 
 	const next = url.searchParams.get('next') || '/dashboard';
 
-	const { data: profile } = await supabase.from('profiles').select('name, cid, rating, subdivision').eq('id', user.id).single();
+	const { data: profile } = await supabase.from('profiles').select('name, cid, rating, subdivision, ermc_access_granted').eq('id', user.id).single();
 
-	const destination = !profile?.name || !profile?.cid || !profile?.rating || !profile?.subdivision ? '/onboarding' : next;
+	// Strict check: if any required field is missing, force onboarding
+	// Also check ermc_access_granted to match hooks logic
+	const needsOnboarding = 
+		!profile ||
+		!profile.name || 
+		!profile.cid || 
+		!profile.rating || 
+		!profile.subdivision || 
+		!profile.ermc_access_granted;
+
+	const destination = needsOnboarding ? '/onboarding' : next;
 
 	return { destination };
 };

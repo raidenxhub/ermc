@@ -293,8 +293,10 @@
                     if (type === 'error') {
                         errMsg = typeof (result as any)?.error?.message === 'string' ? String((result as any).error.message) : '';
                         if (!errMsg && (result as any)?.data?.message) errMsg = (result as any).data.message;
+                        if (!errMsg && (result as any)?.error) errMsg = JSON.stringify((result as any).error);
                     } else if (type === 'failure') {
                          errMsg = (result as any).data?.message || '';
+                         if (!errMsg && (result as any)?.data) errMsg = JSON.stringify((result as any).data);
                     }
 
                     toast.error(errMsg || `Registration failed. (${type})`);
