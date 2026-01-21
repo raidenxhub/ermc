@@ -291,6 +291,7 @@
                     let errMsg = '';
 
                     if (type === 'error') {
+                        // Check multiple error paths and prioritize explicit messages
                         errMsg = typeof (result as any)?.error?.message === 'string' ? String((result as any).error.message) : '';
                         if (!errMsg && (result as any)?.data?.message) errMsg = (result as any).data.message;
                         if (!errMsg && (result as any)?.error) errMsg = JSON.stringify((result as any).error);
@@ -299,14 +300,20 @@
                          if (!errMsg && (result as any)?.data) errMsg = JSON.stringify((result as any).data);
                     }
 
-                    toast.error(errMsg || `Registration failed. (${type})`);
+                    // Final fallback if errMsg is still empty/undefined
+                    if (!errMsg) {
+                        errMsg = `Unknown error (Type: ${type || 'undefined'})`;
+                        console.error('[Registration] Unknown error result:', result);
+                    }
+
+                    toast.error(errMsg);
                     setTimeout(() => (submitState = 'idle'), 2000);
                     
                     await update({ reset: false });
                 } catch (e) {
                     console.error('[Registration] Client error:', e);
                     submitState = 'error';
-                    toast.error('Registration failed. Please try again.');
+                    toast.error(`Registration exception: ${String(e)}`);
                     setTimeout(() => (submitState = 'idle'), 2000);
                 }
             };

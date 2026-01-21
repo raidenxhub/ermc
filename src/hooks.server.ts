@@ -244,13 +244,18 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 		console.error('Unhandled request error:', e);
 
-		if (event.url.pathname !== '/') {
-			throw redirect(303, `/?error=${encodeURIComponent('Something went wrong. Please try again.')}`);
+        // If it's a form action or API call, we should try to return a format the client can parse,
+        // or just let SvelteKit's default error page handle it (which will be a 500 HTML).
+        // Returning a plain text Response here intercepts SvelteKit's error handling and confuses use:enhance.
+        
+		if (event.url.pathname !== '/' && !event.request.headers.get('accept')?.includes('application/json')) {
+            // Only force redirect for page visits, not API/form submissions
+            if (event.request.method === 'GET') {
+			    throw redirect(303, `/?error=${encodeURIComponent('Something went wrong. Please try again.')}`);
+            }
 		}
 
-		return new Response('Something went wrong. Please try again.', {
-			status: 200,
-			headers: { 'content-type': 'text/plain; charset=utf-8' }
-		});
+        // Re-throw so SvelteKit renders the error page or returns JSON error
+        throw e;
 	}
 };
