@@ -1,5 +1,5 @@
 <script lang="ts">
-ssssssssssssssssss    import { browser } from '$app/environment';
+    import { browser } from '$app/environment';
     import { UserPlus, Check, X, Eye, EyeOff } from 'lucide-svelte';
     import { onDestroy, onMount } from 'svelte';
     import { confirm } from '$lib/confirm';
