@@ -45,7 +45,7 @@ export const POST: RequestHandler = async ({ locals }) => {
 			} else if (res.data?.user?.id) {
 				targetUserId = res.data.user.id as string;
 			}
-		} catch (e) {
+		} catch (_e) {
 			return json({ ok: false, message: 'Failed to create test auth user.' }, { status: 500 });
 		}
 	}

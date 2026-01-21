@@ -11,14 +11,22 @@
   import { confirm } from '$lib/confirm';
 
   export let data;
-  const positionOrder: string[] = ['DEL', 'GND', 'TWR', 'APP', 'CTR'];
-  const minRatingByPos: Record<string, number> = { DEL: 2, GND: 2, TWR: 3, APP: 4, CTR: 5 };
+  const positionOrder = ['DEL', 'GND', 'TWR', 'APP', 'CTR'];
+  const minRatingByPos = { DEL: 2, GND: 2, TWR: 3, APP: 4, CTR: 5 } as const;
+  const getMinRating = (code: string) => {
+    if (code === 'DEL') return 2;
+    if (code === 'GND') return 2;
+    if (code === 'TWR') return 3;
+    if (code === 'APP') return 4;
+    if (code === 'CTR') return 5;
+    return null;
+  };
 
   const posCode = (value: unknown) => {
     const raw = typeof value === 'string' ? value : '';
     const last = raw.includes('_') ? raw.split('_').pop() : raw;
     const code = (last || '').toUpperCase();
-    return (positionOrder as readonly string[]).includes(code) ? code : code;
+    return positionOrder.includes(code) ? code : code;
   };
 
   const posLabel = (code: string) => {
@@ -35,12 +43,12 @@
     return Number.isFinite(r) ? r : 0;
   };
 
-  const isEligibleForEntry = (entry: any) => {
+  const _isEligibleForEntry = (entry: any) => {
     if (!entry) return false;
     if (entry.user_id) return true;
     if (data?.isStaff) return true;
     const code = posCode(entry.position);
-    const min = minRatingByPos[code] ?? null;
+    const min = getMinRating(code);
     if (!min) return false;
     const ratingOk = myRating() >= min;
     const hasCid = !!(data?.me as any)?.cid;

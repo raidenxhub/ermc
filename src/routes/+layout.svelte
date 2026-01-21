@@ -20,6 +20,9 @@
   $: canonicalUrl = $page.url.origin + $page.url.pathname;
   $: ogImageUrl = $page.url.origin + '/background.png';
   $: hideNavbar = $page.url.pathname.startsWith('/auth') || $page.url.pathname.startsWith('/onboarding') || $page.url.pathname.startsWith('/oauth') || $page.url.pathname.startsWith('/access-key');
+  $: defaultDesc = 'ERMC (Event Roster Management Control) enables event rostering, coordination tools, and network awareness for flight simulation communities.';
+  $: isIndexable = !($page.url.pathname.startsWith('/auth') || $page.url.pathname.startsWith('/onboarding') || $page.url.pathname.startsWith('/events/mgmt') || $page.url.pathname.startsWith('/settings') || $page.url.pathname.startsWith('/statistics'));
+  $: robotsContent = isIndexable ? 'index,follow' : 'noindex,nofollow';
 
   const titleForPath = (pathname: string) => {
     if (pathname === '/') return 'ERMC — Rostering Re-Imagined';
@@ -136,11 +139,29 @@
 <svelte:head>
   <link rel="canonical" href={canonicalUrl} />
   <title>{pageTitle}</title>
+  <meta name="description" content={defaultDesc} />
+  <meta name="robots" content={robotsContent} />
   <meta property="og:url" content={canonicalUrl} />
   <meta property="og:title" content={pageTitle} />
+  <meta property="og:description" content={defaultDesc} />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="ERMC" />
   <meta property="og:image" content={ogImageUrl} />
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={pageTitle} />
+  <meta name="twitter:description" content={defaultDesc} />
   <meta name="twitter:image" content={ogImageUrl} />
+  <link rel="alternate" href={canonicalUrl} hreflang="en" />
+  <script type="application/ld+json">
+    {JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'ERMC',
+      url: canonicalUrl,
+      description: defaultDesc,
+      inLanguage: 'en'
+    })}
+  </script>
 </svelte:head>
 
 <Toaster position="top-center" richColors class="z-[9999]" />

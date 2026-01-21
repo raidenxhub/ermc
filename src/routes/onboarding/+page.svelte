@@ -47,7 +47,7 @@
         }
     };
     let showNameInput = false;
-    let nameTouched = false;
+    let _nameTouched = false;
     let showAccessKey = false;
 
     const verifyCid = async (cid: string) => {
@@ -86,7 +86,7 @@
             cidVerifiedValue = trimmed;
             cidMember = payload.member;
             const nameFromCid = typeof payload?.member?.name === 'string' ? payload.member.name.trim() : '';
-            if (nameFromCid && !fullNameValue) fullNameValue = nameFromCid;
+                if (nameFromCid && !fullNameValue) fullNameValue = nameFromCid;
         } catch {
             if (token !== cidRequestToken) return;
             cidVerifyState = 'error';
@@ -159,7 +159,7 @@
     };
 
     type SubmitFunction = NonNullable<Parameters<typeof enhance>[1]>;
-    const handleCompleteRegistration = async () => {
+    const _handleCompleteRegistration = async () => {
         if (!browser) return;
         if (!onboardingForm) return;
         if (submitState === 'loading' || submitState === 'success') return;
@@ -195,7 +195,7 @@
             submitState = 'error';
             toast.error(msg);
             setTimeout(() => (submitState = 'idle'), 1200);
-        } catch (e) {
+        } catch (_e) {
             submitState = 'error';
             toast.error('Registration failed. Please try again.');
             setTimeout(() => (submitState = 'idle'), 1200);
@@ -226,7 +226,7 @@
             cancelState = 'error';
             toast.error(payload?.message || 'Cancellation failed.');
             setTimeout(() => (cancelState = 'idle'), 2000);
-        } catch (e) {
+        } catch (_e) {
             cancelState = 'error';
             toast.error('Cancellation failed. Please try again.');
             setTimeout(() => (cancelState = 'idle'), 2000);
@@ -236,7 +236,7 @@
     const useEnhanceOnboarding = (formEl: HTMLFormElement) => {
         if (!browser) return;
         onboardingForm = formEl;
-        const submit: SubmitFunction = async ({ cancel }) => {
+        const submit: SubmitFunction = async ({ cancel: _cancel }) => {
             submitState = 'loading';
             return async ({ result, update }) => {
                 try {
@@ -284,7 +284,7 @@
 
     const useEnhanceCancelRegistration = (formEl: HTMLFormElement) => {
         if (!browser) return;
-        const submit: SubmitFunction = async ({ cancel }) => {
+        const submit: SubmitFunction = async ({ cancel: _cancel }) => {
             cancelState = 'loading'; // Ensure state is loading when submission actually starts
             return async ({ result, update }) => {
                 console.log('[CancelRegistration] Result:', result);
@@ -409,7 +409,7 @@
                                     placeholder="e.g. John Doe"
                                     class="input input-bordered w-full"
                                     required
-                                    on:input={() => (nameTouched = true)}
+                                on:input={() => (_nameTouched = true)}
                                 />
                                 <div class="mt-2 text-xs text-base-content/70">
                                     If we can’t fetch your name from VATSIM, enter it manually.
