@@ -272,7 +272,8 @@
 
                     if (type === 'error') {
                         submitState = 'error';
-                        toast.error('Registration failed. Please try again.');
+                        const errMsg = typeof (result as any)?.error?.message === 'string' ? String((result as any).error.message) : '';
+                        toast.error(errMsg ? `Registration failed: ${errMsg}` : 'Registration failed. Please try again.');
                         setTimeout(() => (submitState = 'idle'), 2000);
                         return;
                     }

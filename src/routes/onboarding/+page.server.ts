@@ -153,8 +153,12 @@ export const actions: Actions = {
 				const status = Number((e as { status?: number }).status);
 				if (Number.isFinite(status) && status >= 300 && status < 400) throw e;
 			}
-			console.error('Onboarding registration failed:', e);
-			return fail(500, { message: 'Registration failed. Please try again.' });
+			const errorId =
+				typeof globalThis !== 'undefined' && (globalThis as any)?.crypto?.randomUUID
+					? (globalThis as any).crypto.randomUUID()
+					: String(Date.now());
+			console.error('Onboarding registration failed:', errorId, e);
+			return fail(500, { message: `Registration failed. Please try again. (Error: ${errorId})` });
 		}
 	},
 	deleteRejectedAccount: async ({ locals: { supabase, user } }) => {
@@ -180,6 +184,23 @@ export const actions: Actions = {
 		if (!supabase) throw redirect(303, '/');
 
 		try {
+			if (!privateEnv.SUPABASE_SERVICE_ROLE) {
+				const errorId =
+					typeof globalThis !== 'undefined' && (globalThis as any)?.crypto?.randomUUID
+						? (globalThis as any).crypto.randomUUID()
+						: String(Date.now());
+				console.error('Cancel registration missing SUPABASE_SERVICE_ROLE:', errorId);
+				try {
+					await supabase.auth.signOut();
+				} catch (e) {
+					console.error('Sign out failed during missing-service-role cancel:', e);
+				}
+				throw redirect(
+					303,
+					`/?error=${encodeURIComponent(`Account cancellation is temporarily unavailable. Please contact support. (Error: ${errorId})`)}`
+				);
+			}
+
 			try {
 				await supabase.auth.signOut();
 			} catch (e) {
@@ -193,8 +214,12 @@ export const actions: Actions = {
 				const status = Number((e as { status?: number }).status);
 				if (Number.isFinite(status) && status >= 300 && status < 400) throw e;
 			}
-			console.error('Cancel registration failed:', e);
-			throw redirect(303, '/?error=Account%20cancellation%20failed.%20Please%20try%20again.');
+			const errorId =
+				typeof globalThis !== 'undefined' && (globalThis as any)?.crypto?.randomUUID
+					? (globalThis as any).crypto.randomUUID()
+					: String(Date.now());
+			console.error('Cancel registration failed:', errorId, e);
+			throw redirect(303, `/?error=${encodeURIComponent(`Account cancellation failed. Please try again. (Error: ${errorId})`)}`);
 		}
 	}
 };
