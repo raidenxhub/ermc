@@ -3,11 +3,13 @@ import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals: { supabase }, url }) => {
 	if (!supabase) throw redirect(303, '/?error=Server%20configuration%20error');
-	const next = url.searchParams.get('next') ?? '/dashboard';
-	const redirectUrl =
-		process.env.NODE_ENV === 'production'
-			? `https://ermc.realkenan.dev/auth/callback?next=${encodeURIComponent(next)}`
-			: `${url.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+	const sanitizeNext = (value: string | null) => {
+		if (!value) return '/dashboard';
+		if (!value.startsWith('/')) return '/dashboard';
+		return value;
+	};
+	const next = sanitizeNext(url.searchParams.get('next'));
+	const redirectUrl = `${url.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
 	const { data, error } = await supabase.auth.signInWithOAuth({
 		provider: 'discord',

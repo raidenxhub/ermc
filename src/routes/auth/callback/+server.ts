@@ -7,7 +7,12 @@ import { sendWelcomeEmail } from '$lib/server/email';
 
 export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 	const code = url.searchParams.get('code');
-	const next = url.searchParams.get('next') ?? '/dashboard';
+	const sanitizeNext = (value: string | null) => {
+		if (!value) return '/dashboard';
+		if (!value.startsWith('/')) return '/dashboard';
+		return value;
+	};
+	const next = sanitizeNext(url.searchParams.get('next'));
 	if (!supabase) throw redirect(303, '/?error=Server%20configuration%20error');
 
 	if (code) {
